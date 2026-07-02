@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#3DAA72">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Sara's Luck</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='10' width='80' height='80' rx='20' fill='%233DAA72'/%3E%3Cg fill='%23fff'%3E%3Ccircle cx='32' cy='32' r='8'/%3E%3Ccircle cx='68' cy='32' r='8'/%3E%3Ccircle cx='50' cy='50' r='8'/%3E%3Ccircle cx='32' cy='68' r='8'/%3E%3Ccircle cx='68' cy='68' r='8'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+  :root{--bg:#F2F9F5;--card:#ECF7F0;--panel:#E4F4EA;--bg-input:#F8FDF9;--line:rgba(30,130,70,0.16);--line2:rgba(30,130,70,0.30);--pink:#3DAA72;--deep:#267A52;--plum:#0F2218;--muted:#66987A;--gold:#e0a92e;--red:#d4342a;--good:#2f9d6b;--glow:rgba(61,170,114,0.22);--grad-top:#5BC98D;--grad-bot:#2E9A63;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--plum);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.5;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 14px 48px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .logo{width:46px;height:46px;flex:0 0 auto;border-radius:14px;background:linear-gradient(180deg,var(--grad-top),var(--grad-bot));display:grid;place-items:center;box-shadow:0 3px 12px var(--glow),inset 0 2px 4px rgba(255,255,255,.4),inset 0 -2px 4px rgba(0,0,0,.08)}
+  .logo svg{width:30px;height:30px}
+  h1{font-size:26px;margin:0;font-weight:800;color:var(--deep);letter-spacing:-.5px}
+  .sub{color:var(--muted);font-size:12px;margin:2px 0 0}
+  .status{font-size:11px;color:var(--muted);margin:8px 2px 0;min-height:14px}
+  .card{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:16px;margin-top:16px;box-shadow:0 4px 16px var(--glow),inset 0 1px 0 rgba(255,255,255,.55)}
+  .ct{display:flex;align-items:baseline;justify-content:space-between}
+  .game{font-size:19px;font-weight:800;color:var(--deep)}
+  .matrix{font-size:11px;color:var(--muted)}
+  .method{font-size:10.5px;color:var(--muted);margin-top:1px}
+  .count{margin:12px 0 4px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:10px;text-align:center;box-shadow:inset 0 1px 3px rgba(30,130,70,.06)}
+  .count .lbl{font-size:10px;letter-spacing:.8px;color:var(--pink);font-weight:700;text-transform:uppercase}
+  .clock{font-size:23px;font-weight:800;color:var(--plum);font-variant-numeric:tabular-nums;margin-top:2px}
+  .jrow{display:flex;justify-content:space-between;margin-top:11px;font-size:13.5px}
+  .jrow .k{color:var(--muted)}.jrow .v{font-weight:700}
+  .net{margin-top:11px;background:linear-gradient(180deg,#EAF7EF,var(--bg-input));border:1.5px dashed var(--line2);border-radius:12px;padding:11px 13px}
+  .net .big{font-size:22px;font-weight:800;color:var(--deep)}
+  .net .cap{font-size:10.5px;color:var(--muted)}
+  .ticket{margin-top:14px}
+  .ticket h4{margin:0 0 7px;font-size:11px;letter-spacing:.4px;color:var(--pink);text-transform:uppercase;font-weight:700}
+  .balls{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .ball{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:16px;background:#ffffff;border:1.5px solid var(--line);color:#183a28;box-shadow:0 2px 5px var(--glow),inset 0 1px 0 rgba(255,255,255,.7)}
+  .ball.red{background:var(--red);color:#fff;border-color:#a5261e}
+  .ball.gold{background:var(--gold);color:#3a2c07;border-color:#b8871c}
+  .plus{color:var(--muted);font-size:19px;margin:0 1px}
+  .tag{font-size:11px;color:var(--muted);margin-top:6px}
+  .foot{margin-top:18px;font-size:11px;color:var(--muted);background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:11px 13px}
+  .refresh{display:block;width:100%;margin-top:16px;padding:13px;border:0;border-radius:14px;background:linear-gradient(180deg,var(--grad-top),var(--grad-bot));color:#fff;font-size:15px;font-weight:700;box-shadow:0 4px 12px var(--glow),inset 0 2px 4px rgba(255,255,255,.35),inset 0 -2px 4px rgba(0,0,0,.08);text-shadow:0 1px 1px rgba(0,0,0,.15)}
+  .refresh:active{transform:translateY(1px)}
+  .mimicbtn{margin-top:8px;padding:8px 16px;border:none;border-radius:20px;background:linear-gradient(180deg,var(--grad-top),var(--grad-bot));color:#fff;font-size:13px;font-weight:600;box-shadow:0 4px 12px var(--glow),inset 0 2px 4px rgba(255,255,255,.35),inset 0 -2px 4px rgba(0,0,0,.08);text-shadow:0 1px 1px rgba(0,0,0,.15)}
+  .mimicbtn:active{transform:translateY(1px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><svg viewBox="0 0 100 100"><rect x="8" y="8" width="84" height="84" rx="20" fill="#fff"/><g fill="#2E9A63"><circle cx="32" cy="32" r="8"/><circle cx="68" cy="32" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="32" cy="68" r="8"/><circle cx="68" cy="68" r="8"/></g></svg></div>
+    <div><h1>Sara's Luck</h1><p class="sub">Powerball &amp; Lotto America</p></div>
+  </header>
+  <div class="status" id="status">loading…</div>
+  <div id="games"></div>
+  <button class="refresh" id="refreshBtn">↻ Refresh now</button>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+/* ---- bundled seed data (self-updater refreshes Powerball on launch) ---- */
+const SEED = {
+  taxes:{ okTopRate:0.045, fed:[[0,0.10],[12400,0.12],[50400,0.22],[105700,0.24],[201775,0.32],[256225,0.35],[640600,0.37]] },
+  powerball:{ name:"Powerball", matrix:"5 of 69 + 1 of 26", odds:292201338, method:"physical ball machine (Tallahassee FL)",
+    drawDays:[1,3,6], h:21, m:59, advertisedAnnuity:375000000, cashLumpSum:170600000, draws:1375, windowStart:"since 2015 matrix",
+    ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:true },
+  lottoAmerica:{ name:"Lotto America", matrix:"5 of 52 + 1 of 10", odds:25989600, method:"certified RNG (Johnston IA) since 2023",
+    drawDays:[1,3,6], h:21, m:15, advertisedAnnuity:31160000, cashLumpSum:14170000, draws:502, windowStart:"RNG era only",
+    ticketData:{white:[8,9,15,42,51],special:4}, ticketEdge:{white:[5,8,42,47,51],special:4}, sp:"SB", cls:"gold", live:false, dataThrough:"2026-06-29" },
+  updated:"bundled 2026-07-01"
+};
+let DATA = JSON.parse(JSON.stringify(SEED));
+try{ const c=localStorage.getItem('saraLuck'); if(c){const p=JSON.parse(c); DATA=Object.assign(DATA,p);} }catch(e){}
+
+const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+const moneyM=n=>'$'+(n/1e6).toLocaleString('en-US',{maximumFractionDigits:2})+'M';
+function fedTax(x){const b=DATA.taxes.fed;let t=0;for(let i=0;i<b.length;i++){const lo=b[i][0],r=b[i][1],hi=i+1<b.length?b[i+1][0]:Infinity;if(x>lo)t+=(Math.min(x,hi)-lo)*r;else break;}return t;}
+function net(cash){const f=fedTax(cash),o=cash*DATA.taxes.okTopRate;return{net:cash-f-o,f,o};}
+function nextDraw(days,h,m){const now=new Date();for(let i=0;i<14;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i,h,m);if(days.includes(d.getDay())&&d>now)return d;}return now;}
+function left(ms){if(ms<0)ms=0;const s=Math.floor(ms/1000),dd=Math.floor(s/86400),hh=Math.floor(s%86400/3600),mm=Math.floor(s%3600/60),ss=s%60;return (dd?dd+'d ':'')+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');}
+function balls(t,cls){let h='<div class="balls">';t.white.forEach(n=>h+=`<span class="ball">${n}</span>`);h+=`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span></div>`;return h;}
+
+function card(g){
+  const nd=nextDraw(g.drawDays,g.h,g.m), t=net(g.cashLumpSum);
+  const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
+  return `<div class="card" data-d="${g.drawDays}" data-h="${g.h}" data-m="${g.m}">
+    <div class="ct"><span class="game">${g.name}</span><span class="matrix">${g.matrix}</span></div>
+    <div class="method">${g.method}</div>
+    <div class="method" style="color:${g.live?'var(--good)':'var(--muted)'}">${g.live?'● live — auto-updates':'● data through '+g.dataThrough+' · refreshes from the live feed when online'}</div>
+    <div class="count"><div class="lbl">next drawing</div><div class="clock" data-clk>${left(nd-new Date())}</div>
+      <div class="tag">${nd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div></div>
+    <div class="jrow"><span class="k">Jackpot</span><span class="v">${moneyM(g.advertisedAnnuity)}</span></div>
+    <div class="jrow"><span class="k">Cash lump sum</span><span class="v">${moneyM(g.cashLumpSum)}</span></div>
+    <div class="jrow"><span class="k">Odds</span><span class="v">1 in ${g.odds.toLocaleString()}</span></div>
+    <div class="net"><div class="cap">Win alone in Oklahoma, after 37% federal + 4.5% state</div>
+      <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
+    <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
+      <div class="tag">Hot + recent + persistent across the whole history.</div></div>
+    <div class="ticket"><h4>Most-drawn line (${g.draws} draws, ${g.windowStart})</h4>${balls(g.ticketData,g.cls)}</div>
+    <div class="ticket"><h4>🎲 Perfect mimic (${g.matrix})</h4><div class="balls" id="m-${g.sp}"></div>
+      <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}')">new mimic draw</button>
+      <div class="tag">A crypto-grade fair draw — regenerates each press (a mimic of randomness is random). Same odds as any line.</div></div>
+  </div>`;
+}
+function rndInt(n){/* crypto-grade, modulo-bias-free */const g=window.crypto||window.msCrypto;if(g&&g.getRandomValues){const max=Math.floor(0x100000000/n)*n,a=new Uint32Array(1);let x;do{g.getRandomValues(a);x=a[0];}while(x>=max);return x%n;}return Math.floor(Math.random()*n);}
+function mimicLine(pool,spool){const w=new Set();while(w.size<5)w.add(1+rndInt(pool));return{white:[...w].sort((a,b)=>a-b),special:1+rndInt(spool)};}
+window.newMimic=function(id,pool,spool,cls){const t=mimicLine(pool,spool);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;};
+function render(){
+  document.getElementById('games').innerHTML = card(DATA.powerball) + card(DATA.lottoAmerica);
+  newMimic('m-PB',69,26,'red'); newMimic('m-SB',52,10,'gold');
+  document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
+  document.getElementById('foot').innerHTML = '<b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🎲 Perfect mimic</b> — a crypto-grade fair draw that regenerates each press (a perfect copy of a random draw is itself random — not a prediction).<br><br>All three are equally likely to win (1 in 292M / 1 in 26M). Honest, robust construction — the odds are unchanged. Play one you like and set a budget.';
+}
+
+/* ---- self-updater: fetch Texas Powerball CSV, recompute freq + tickets ---- */
+async function refreshPB(manual){
+  const st=document.getElementById('status'); st.textContent='refreshing Powerball…';
+  try{
+    let rows=null;
+    try{ // primary: Texas Lottery CSV (works natively inside the app)
+      const r=await fetch('https://www.texaslottery.com/export/sites/lottery/Games/Powerball/Winning_Numbers/powerball.csv',{cache:'no-store'});
+      if(r.ok){const csv=await r.text();
+        const rr=csv.trim().split(/\r?\n/).map(l=>l.split(',')).map(c=>({key:+c[3]*10000+ +c[1]*100+ +c[2],w:[+c[4],+c[5],+c[6],+c[7],+c[8]],s:+c[9]})).filter(x=>x.key>=20151007).sort((a,b)=>a.key-b.key);
+        if(rr.length>=1000) rows=rr;}
+    }catch(e){}
+    if(!rows){ // fallback: NY open-data API (CORS-enabled — works in a browser too)
+      const r2=await fetch('https://data.ny.gov/resource/d6yy-54nr.json?$limit=5000',{cache:'no-store'});
+      const j=await r2.json();
+      rows=j.map(o=>{const d=o.draw_date.slice(0,10).split('-');const n=o.winning_numbers.trim().split(/\s+/).map(Number);return{key:+d[0]*10000+ +d[1]*100+ +d[2],w:n.slice(0,5),s:n[5]};}).filter(x=>x.key>=20151007).sort((a,b)=>a.key-b.key);
+    }
+    if(!rows||rows.length<1000) throw new Error('no data');
+    const wf=new Array(69).fill(0),pf=new Array(26).fill(0);
+    rows.forEach(x=>{x.w.forEach(n=>{if(n>=1&&n<=69)wf[n-1]++;});if(x.s>=1&&x.s<=26)pf[x.s-1]++;});
+    const top=(a,k)=>a.map((v,i)=>[i+1,v]).sort((p,q)=>q[1]-p[1]).slice(0,k).map(x=>x[0]);
+    const last=rows[rows.length-1];
+    const half=Math.floor(rows.length/2);
+    const cntW=win=>{const c=new Array(69).fill(0);rows.slice(-win).forEach(x=>x.w.forEach(n=>c[n-1]++));return c;};
+    const r77=cntW(77);
+    const c1=new Array(69).fill(0),c2=new Array(69).fill(0);
+    rows.slice(0,half).forEach(x=>x.w.forEach(n=>c1[n-1]++));rows.slice(half).forEach(x=>x.w.forEach(n=>c2[n-1]++));
+    const a1=c1.reduce((a,b)=>a+b,0)/69,a2=c2.reduce((a,b)=>a+b,0)/69;
+    const zf=a=>{const m=a.reduce((x,y)=>x+y,0)/a.length,sd=Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length)||1;return a.map(v=>(v-m)/sd);};
+    const zA=zf(wf), app=new Array(69).fill(0);
+    for(const win of [50,77,100,150]){const zR=zf(cntW(win));for(const wr of [0.3,0.5,0.7,1.0])for(const wp of [0,0.25,0.5,0.75,1.0]){zA.map((v,i)=>[i+1,v+wr*zR[i]+wp*((c1[i]>a1&&c2[i]>a2)?1:0)]).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(t=>app[t[0]-1]++);}}
+    const md=wf.map((v,i)=>({n:i+1,c:v,r:r77[i]})).sort((a,b)=>b.c-a.c||b.r-a.r||a.n-b.n).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
+    const ew=app.map((v,i)=>({n:i+1,p:v})).sort((a,b)=>b.p-a.p||wf[b.n-1]-wf[a.n-1]).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
+    DATA.powerball.draws=rows.length;
+    DATA.powerball.ticketData={white:md,special:top(pf,1)[0]};
+    DATA.powerball.ticketEdge={white:ew,special:top(pf,1)[0]};
+    DATA.updated='updated '+String(last.key).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
+    try{localStorage.setItem('saraLuck',JSON.stringify(DATA));}catch(e){}
+    render();
+  }catch(e){
+    st.textContent='offline — showing last saved numbers'+(manual?' (tap Refresh on Wi-Fi)':'');
+  }
+}
+
+async function syncData(){
+  const st=document.getElementById('status');
+  try{
+    const r=await fetch('https://raw.githubusercontent.com/SaraSineadiii/saras-luck-data/main/data.json',{cache:'no-store'});
+    if(!r.ok) throw new Error('bad');
+    const j=await r.json();
+    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.draws)DATA[k].draws=g.draws; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
+    DATA.updated=(j.updated||'').slice(0,10);
+    try{localStorage.setItem('saraLuck',JSON.stringify(DATA));}catch(e){}
+    render();
+  }catch(e){ refreshPB(false); }   // fall back to direct Powerball fetch
+}
+render();
+document.getElementById('refreshBtn').addEventListener('click',()=>syncData());
+setInterval(()=>{document.querySelectorAll('.card').forEach(c=>{const d=c.dataset.d.split(',').map(Number);const nd=nextDraw(d,+c.dataset.h,+c.dataset.m);const e=c.querySelector('[data-clk]');if(e)e.textContent=left(nd-new Date());});},1000);
+setTimeout(()=>syncData(),400);
+</script>
+</body>
+</html>

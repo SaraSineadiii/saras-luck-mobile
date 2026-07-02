@@ -1,0 +1,19 @@
+{
+  "name": "saras-luck-mobile",
+  "version": "1.0.0",
+  "description": "Sara's Luck — Powerball & Lotto America dashboard (Capacitor / Android)",
+  "private": true,
+  "scripts": {
+    "add:android": "cap add android",
+    "sync": "cap sync",
+    "open:android": "cap open android",
+    "build:apk": "cd android && gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

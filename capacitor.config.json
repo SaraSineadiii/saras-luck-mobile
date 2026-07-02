@@ -1,0 +1,11 @@
+{
+  "appId": "com.cosmicore.saraluck",
+  "appName": "Sara's Luck",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "buildOptions": {}
+  }
+}
