@@ -41,6 +41,9 @@
   .ball.gold{background:var(--gold);color:#3a2c07;border-color:#b8871c}
   .plus{color:var(--muted);font-size:19px;margin:0 1px}
   .tag{font-size:11px;color:var(--muted);margin-top:6px}
+  .lastwin{margin:12px 0 4px;background:linear-gradient(180deg,#F3FBF6,var(--bg-input));border:1.5px solid var(--line2);border-radius:12px;padding:11px 12px}
+  .lwlbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--deep);font-weight:700;margin-bottom:7px}
+  .lwdate{font-weight:700;color:var(--pink)}
   .foot{margin-top:18px;font-size:11px;color:var(--muted);background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:11px 13px}
   .refresh{display:block;width:100%;margin-top:16px;padding:13px;border:0;border-radius:14px;background:linear-gradient(180deg,var(--grad-top),var(--grad-bot));color:#fff;font-size:15px;font-weight:700;box-shadow:0 4px 12px var(--glow),inset 0 2px 4px rgba(255,255,255,.35),inset 0 -2px 4px rgba(0,0,0,.08);text-shadow:0 1px 1px rgba(0,0,0,.15)}
   .refresh:active{transform:translateY(1px)}
@@ -104,7 +107,7 @@ const SEED = {
   taxes:{ okTopRate:0.045, fed:[[0,0.10],[12400,0.12],[50400,0.22],[105700,0.24],[201775,0.32],[256225,0.35],[640600,0.37]] },
   powerball:{ name:"Powerball", matrix:"5 of 69 + 1 of 26", odds:292201338, method:"physical ball machine (Tallahassee FL)",
     drawDays:[1,3,6], h:21, m:59, advertisedAnnuity:375000000, cashLumpSum:170600000, draws:1375, windowStart:"since 2015 matrix",
-    ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:true },
+    ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:true, dataThrough:"2026-07-01" },
   lottoAmerica:{ name:"Lotto America", matrix:"5 of 52 + 1 of 10", odds:25989600, method:"certified RNG (Johnston IA) since 2023",
     drawDays:[1,3,6], h:21, m:15, advertisedAnnuity:31160000, cashLumpSum:14170000, draws:502, windowStart:"RNG era only",
     ticketData:{white:[8,9,15,42,51],special:4}, ticketEdge:{white:[5,8,42,47,51],special:4}, sp:"SB", cls:"gold", live:false, dataThrough:"2026-06-29" },
@@ -120,14 +123,27 @@ function net(cash){const f=fedTax(cash),o=cash*DATA.taxes.okTopRate;return{net:c
 function nextDraw(days,h,m){const now=new Date();for(let i=0;i<14;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i,h,m);if(days.includes(d.getDay())&&d>now)return d;}return now;}
 function left(ms){if(ms<0)ms=0;const s=Math.floor(ms/1000),dd=Math.floor(s/86400),hh=Math.floor(s%86400/3600),mm=Math.floor(s%3600/60),ss=s%60;return (dd?dd+'d ':'')+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');}
 function balls(t,cls){let h='<div class="balls">';t.white.forEach(n=>h+=`<span class="ball">${n}</span>`);h+=`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span></div>`;return h;}
+function antiShareLine(gkey){
+  const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
+  const pool=gkey==='powerball'?69:52, spool=gkey==='powerball'?26:10;
+  const wf=new Array(pool).fill(0), sf=new Array(spool).fill(0);
+  H.forEach(r=>{for(let i=0;i<5;i++)wf[r[i]-1]++;sf[r[5]-1]++;});
+  const white=wf.map((v,i)=>({n:i+1,c:v})).filter(x=>x.n>31).sort((a,b)=>b.c-a.c||a.n-b.n).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
+  const special=sf.reduce((a,b)=>a+b,0)?sf.map((v,i)=>({n:i+1,c:v})).sort((a,b)=>b.c-a.c||a.n-b.n)[0].n:1;
+  return {white,special};
+}
 
-function card(g){
+function card(g,gkey){
   const nd=nextDraw(g.drawDays,g.h,g.m), t=net(g.cashLumpSum);
   const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
+  const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
+  const ldr=H.length?H[H.length-1]:null;
   return `<div class="card" data-d="${g.drawDays}" data-h="${g.h}" data-m="${g.m}">
     <div class="ct"><span class="game">${g.name}</span><span class="matrix">${g.matrix}</span></div>
     <div class="method">${g.method}</div>
     <div class="method" style="color:${g.live?'var(--good)':'var(--muted)'}">${g.live?'● live — auto-updates':'● data through '+g.dataThrough+' · refreshes from the live feed when online'}</div>
+    ${ldr?`<div class="lastwin"><div class="lwlbl">🏆 Most recent winning numbers${g.dataThrough?` · <span class="lwdate">${g.dataThrough}</span>`:''}</div>
+      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div></div>`:''}
     <div class="count"><div class="lbl">next drawing</div><div class="clock" data-clk>${left(nd-new Date())}</div>
       <div class="tag">${nd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div></div>
     <div class="jrow"><span class="k">Jackpot</span><span class="v">${moneyM(g.advertisedAnnuity)}</span></div>
@@ -138,6 +154,8 @@ function card(g){
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
       <div class="tag">Hot + recent + persistent across the whole history.</div></div>
     <div class="ticket"><h4>Most-drawn line (${g.draws} draws, ${g.windowStart})</h4>${balls(g.ticketData,g.cls)}</div>
+    <div class="ticket"><h4>🛡 Least-shared line — less likely to split</h4>${balls(antiShareLine(gkey),g.cls)}
+      <div class="tag">Hottest numbers above 31 — most players pick birthdays (1–31), so a win here is less likely to be shared. The one method that raises your expected take (payout, not odds).</div></div>
     <div class="ticket"><h4>🎲 Perfect mimic (${g.matrix})</h4><div class="balls" id="m-${g.sp}"></div>
       <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}')">new mimic draw</button>
       <div class="tag">A crypto-grade fair draw — regenerates each press (a mimic of randomness is random). Same odds as any line.</div></div>
@@ -147,10 +165,10 @@ function rndInt(n){/* crypto-grade, modulo-bias-free */const g=window.crypto||wi
 function mimicLine(pool,spool){const w=new Set();while(w.size<5)w.add(1+rndInt(pool));return{white:[...w].sort((a,b)=>a-b),special:1+rndInt(spool)};}
 window.newMimic=function(id,pool,spool,cls){const t=mimicLine(pool,spool);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;};
 function render(){
-  document.getElementById('games').innerHTML = card(DATA.powerball) + card(DATA.lottoAmerica);
+  document.getElementById('games').innerHTML = card(DATA.powerball,'powerball') + card(DATA.lottoAmerica,'lottoAmerica');
   newMimic('m-PB',69,26,'red'); newMimic('m-SB',52,10,'gold');
   document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
-  document.getElementById('foot').innerHTML = '<b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🎲 Perfect mimic</b> — a crypto-grade fair draw that regenerates each press (a perfect copy of a random draw is itself random — not a prediction).<br><br>All three are equally likely to win (1 in 292M / 1 in 26M). Honest, robust construction — the odds are unchanged. Play one you like and set a budget.';
+  document.getElementById('foot').innerHTML = '<b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🛡 Least-shared line</b> — the hottest numbers above 31; same odds, but since most players pick birthdays (1–31), a win here is less likely to be split. The one lever that raises your expected take.<br><br><b>🎲 Perfect mimic</b> — a crypto-grade fair draw that regenerates each press (a perfect copy of a random draw is itself random — not a prediction).<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 33 independent AI agents confirmed no method predicts the draw. The only real lever is not splitting. Play one you like and set a budget.';
 }
 
 /* ---- self-updater: fetch Texas Powerball CSV, recompute freq + tickets ---- */
@@ -186,6 +204,8 @@ async function refreshPB(manual){
     const md=wf.map((v,i)=>({n:i+1,c:v,r:r77[i]})).sort((a,b)=>b.c-a.c||b.r-a.r||a.n-b.n).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
     const ew=app.map((v,i)=>({n:i+1,p:v})).sort((a,b)=>b.p-a.p||wf[b.n-1]-wf[a.n-1]).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
     DATA.powerball.draws=rows.length;
+    DATA.powerball.history=rows.map(r=>[...r.w.slice().sort((a,b)=>a-b),r.s]);
+    DATA.powerball.dataThrough=String(last.key).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
     DATA.powerball.ticketData={white:md,special:top(pf,1)[0]};
     DATA.powerball.ticketEdge={white:ew,special:top(pf,1)[0]};
     DATA.updated='updated '+String(last.key).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
