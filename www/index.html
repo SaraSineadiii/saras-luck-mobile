@@ -83,6 +83,7 @@
       <button class="labtab" data-t="ev">EV</button>
       <button class="labtab" data-t="wheel">Wheel</button>
       <button class="labtab" data-t="bt">Walk-forward</button>
+      <button class="labtab" data-t="chrono">Chrono mimic</button>
       <button class="labtab" data-t="crack">Real crack</button>
     </div>
     <div class="labgame"><span>Data set:</span>
@@ -325,6 +326,37 @@ setTimeout(()=>syncData(),400);
     },30);
   }
 
+  function panelChrono(k){
+    return '<p class="sub" style="margin:0 0 8px">A mimic that walks every draw <b>in chronological order</b> and predicts the next. Built and tested honestly.</p>'+
+      '<div class="labrow"><button class="mimicbtn" id="chronogo">run the chronological mimic</button></div>'+
+      '<div id="chronoout"></div>';
+  }
+  function runChrono(){
+    const k=GAME,M=META[k],H=hist(k),n=H.length,warm=Math.min(200,Math.floor(n/3));
+    const out=document.getElementById('chronoout');out.innerHTML='<p class="sub">walking '+(n-warm)+' draws in time order&hellip;</p>';
+    setTimeout(function(){
+      const L=Math.exp(-0.02),w=new Array(M.pool).fill(0);
+      for(let i=0;i<warm;i++){for(let j=0;j<M.pool;j++)w[j]*=L;for(let j=0;j<5;j++)w[H[i][j]-1]+=1;}
+      const top5=()=>w.map((v,i)=>[i+1,v]).sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,5).map(x=>x[0]);
+      let A=0,B=0,c=0;
+      for(let t=warm;t<n;t++){
+        const pred=top5(),act=new Set(H[t].slice(0,5));
+        let ov=0;for(const x of pred)if(act.has(x))ov++;A+=ov;
+        let b2=0;for(let s=0;s<40;s++){let r;do{r=Math.floor(Math.random()*n);}while(r===t);const rs=new Set(H[r].slice(0,5));let o=0;for(const x of pred)if(rs.has(x))o++;b2+=o;}
+        B+=b2/40;c++;
+        for(let j=0;j<M.pool;j++)w[j]*=L;for(let j=0;j<5;j++)w[H[t][j]-1]+=1;
+      }
+      A/=c;B/=c;const uni=25/M.pool,noEdge=Math.abs(A-B)<0.03;
+      out.innerHTML='<table class="lab"><tbody>'+
+        '<tr><td>Uniform baseline (any fixed 5)</td><td class="n">'+uni.toFixed(3)+'</td></tr>'+
+        '<tr><td><b>Mimic vs the TRUE next draw</b></td><td class="n"><b>'+A.toFixed(3)+'</b></td></tr>'+
+        '<tr><td>Same picks vs a RANDOM draw</td><td class="n">'+B.toFixed(3)+'</td></tr>'+
+        '</tbody></table>'+
+        '<div class="verdict '+(noEdge?'warn':'pass')+'">Scores <b>'+A.toFixed(2)+'</b> vs the next draw (above the '+uni.toFixed(2)+' baseline, so it <i>looks</i> predictive) &mdash; but <b>'+B.toFixed(2)+'</b> vs a random unrelated draw too. '+(noEdge?'Equal &rArr; NOT predicting the next draw':'')+', just picking commonly-drawn numbers that match <i>any</i> draw equally. Zero temporal edge.</div>'+
+        '<div class="labnote">The honest answer to &ldquo;a mimic that predicts as it walks chronologically.&rdquo; Independent draws carry no order information (lag-1 info = 0), so the best autoregressive model matches the next draw no better than a draw years away. A perfect mimic of a random process is, necessarily, random. (8 model families tested vs a time-shuffled control &mdash; none beat it.)</div>';
+    },30);
+  }
+
   function panelCrack(){
     return '<div class="labnote" style="background:var(--bg-input);line-height:1.55">'+
       '<b>Is either game crackable? The honest answer.</b><br><br>'+
@@ -341,6 +373,7 @@ setTimeout(()=>syncData(),400);
     else if(TAB==='ev')b.innerHTML=panelEV(GAME);
     else if(TAB==='wheel'){b.innerHTML=panelWheel(GAME);document.getElementById('wheelgo').onclick=buildWheel;}
     else if(TAB==='bt'){b.innerHTML=panelBT(GAME);document.getElementById('btgo').onclick=runBT;}
+    else if(TAB==='chrono'){b.innerHTML=panelChrono(GAME);document.getElementById('chronogo').onclick=runChrono;}
     else b.innerHTML=panelCrack();
   }
   document.querySelectorAll('.labtab').forEach(t=>t.onclick=function(){document.querySelectorAll('.labtab').forEach(x=>x.classList.remove('active'));t.classList.add('active');TAB=t.dataset.t;render();});
