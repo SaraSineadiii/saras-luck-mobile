@@ -46,6 +46,24 @@
   .refresh:active{transform:translateY(1px)}
   .mimicbtn{margin-top:8px;padding:8px 16px;border:none;border-radius:20px;background:linear-gradient(180deg,var(--grad-top),var(--grad-bot));color:#fff;font-size:13px;font-weight:600;box-shadow:0 4px 12px var(--glow),inset 0 2px 4px rgba(255,255,255,.35),inset 0 -2px 4px rgba(0,0,0,.08);text-shadow:0 1px 1px rgba(0,0,0,.15)}
   .mimicbtn:active{transform:translateY(1px)}
+  .labtabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 8px}
+  .labtab{padding:7px 11px;border:1.5px solid var(--line);border-radius:18px;background:var(--bg-input);color:var(--muted);font-size:11.5px;font-weight:700;cursor:pointer}
+  .labtab.active{background:linear-gradient(180deg,var(--grad-top),var(--grad-bot));color:#fff;border-color:transparent;box-shadow:0 3px 10px var(--glow)}
+  .labgame{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:10px}
+  .gtoggle{padding:5px 11px;border:1.5px solid var(--line);border-radius:14px;background:var(--bg-input);color:var(--muted);font-size:11.5px;font-weight:700;cursor:pointer}
+  .gtoggle.active{background:var(--panel);color:var(--deep);border-color:var(--line2)}
+  table.lab{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px}
+  table.lab th{text-align:left;color:var(--muted);font-weight:700;border-bottom:1.5px solid var(--line);padding:5px 3px}
+  table.lab td{padding:5px 3px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.lab td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .verdict{margin-top:9px;padding:8px 11px;border-radius:10px;font-size:12px;font-weight:700}
+  .verdict.pass{background:#e8f7ee;color:#1c7a4a;border:1.5px solid #b6e6c9}
+  .verdict.warn{background:#fff9e6;color:#7a5b00;border:1.5px solid #ffe08a}
+  .labinput{padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg-input);font-size:13px;width:100%;color:var(--plum)}
+  .labrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+  .tik{font-variant-numeric:tabular-nums;font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:3px 7px;margin:2px}
+  .labnote{margin-top:11px;font-size:12px;color:#274436;background:var(--panel);border-radius:10px;padding:11px 13px;border:1.5px solid var(--line)}
+  .labnote code{background:var(--bg-input);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11px}
 </style>
 </head>
 <body>
@@ -56,10 +74,29 @@
   </header>
   <div class="status" id="status">loading…</div>
   <div id="games"></div>
+
+  <div class="card" id="lab">
+    <div class="game" style="display:flex;align-items:center;gap:6px">🔬 Thesis Lab</div>
+    <p class="sub" style="margin:4px 0 0">Runs live on the real draw history — no black boxes.</p>
+    <div class="labtabs">
+      <button class="labtab active" data-t="rng">Randomness</button>
+      <button class="labtab" data-t="ev">EV</button>
+      <button class="labtab" data-t="wheel">Wheel</button>
+      <button class="labtab" data-t="bt">Walk-forward</button>
+      <button class="labtab" data-t="crack">Real crack</button>
+    </div>
+    <div class="labgame"><span>Data set:</span>
+      <button class="gtoggle active" data-g="powerball">Powerball</button>
+      <button class="gtoggle" data-g="lottoAmerica">Lotto America</button>
+    </div>
+    <div id="labbody"></div>
+  </div>
+
   <button class="refresh" id="refreshBtn">↻ Refresh now</button>
   <div class="foot" id="foot"></div>
 </div>
 
+<script src="history.js"></script>
 <script>
 /* ---- bundled seed data (self-updater refreshes Powerball on launch) ---- */
 const SEED = {
@@ -164,7 +201,7 @@ async function syncData(){
     const r=await fetch('https://raw.githubusercontent.com/SaraSineadiii/saras-luck-data/main/data.json',{cache:'no-store'});
     if(!r.ok) throw new Error('bad');
     const j=await r.json();
-    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.draws)DATA[k].draws=g.draws; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
+    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
     DATA.updated=(j.updated||'').slice(0,10);
     try{localStorage.setItem('saraLuck',JSON.stringify(DATA));}catch(e){}
     render();
@@ -174,6 +211,142 @@ render();
 document.getElementById('refreshBtn').addEventListener('click',()=>syncData());
 setInterval(()=>{document.querySelectorAll('.card').forEach(c=>{const d=c.dataset.d.split(',').map(Number);const nd=nextDraw(d,+c.dataset.h,+c.dataset.m);const e=c.querySelector('[data-clk]');if(e)e.textContent=left(nd-new Date());});},1000);
 setTimeout(()=>syncData(),400);
+
+/* ================= Thesis Lab ================= */
+(function(){
+  function erf(x){const s=x<0?-1:1;x=Math.abs(x);const t=1/(1+0.3275911*x);return s*(1-(((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x)));}
+  const norm=z=>0.5*(1+erf(z/Math.SQRT2));
+  function pearson(a,b){const n=a.length,ma=a.reduce((x,y)=>x+y,0)/n,mb=b.reduce((x,y)=>x+y,0)/n;let nu=0,da=0,db=0;for(let i=0;i<n;i++){nu+=(a[i]-ma)*(b[i]-mb);da+=(a[i]-ma)**2;db+=(b[i]-mb)**2;}return (nu/Math.sqrt(da*db))||0;}
+  function hist(k){return (DATA[k]&&DATA[k].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[k])||[];}
+  const META={
+    powerball:{pool:69,spool:26,price:2,jodds:292201338,fixed:[[1000000,11688053.52],[50000,913129.18],[100,36525.17],[100,14494.11],[7,579.76],[7,701.33],[4,91.98],[4,38.32]],prizes:{3:7,4:100,5:1000000},sp:'PB'},
+    lottoAmerica:{pool:52,spool:10,price:1,jodds:25989600,fixed:[[20000,2887733.33],[1000,543741.60],[100,60415.73],[20,12613.36],[5,1401.49],[5,913.63],[2,158.02],[2,61.74]],prizes:{3:5,4:100,5:20000},sp:'SB'}
+  };
+  let TAB='rng', GAME='powerball';
+
+  function panelRNG(k){
+    const H=hist(k),n=H.length,M=META[k];
+    if(n<50)return '<div class="verdict warn">No draw history loaded.</div>';
+    const wf=new Array(M.pool).fill(0);H.forEach(r=>{for(let i=0;i<5;i++)wf[r[i]-1]++;});
+    const E=n*5/M.pool,chiW=wf.reduce((a,o)=>a+(o-E)**2/E,0),dfW=M.pool-1,pW=1-norm((chiW-dfW)/Math.sqrt(2*dfW));
+    const sums=H.map(r=>r[0]+r[1]+r[2]+r[3]+r[4]);
+    let mAC=0,mLag=0;for(let lag=1;lag<=40;lag++){const rr=pearson(sums.slice(0,n-lag),sums.slice(lag));if(Math.abs(rr)>Math.abs(mAC)){mAC=rr;mLag=lag;}}
+    const band=3/Math.sqrt(n);
+    const med=[...sums].sort((a,b)=>a-b)[n>>1];let runs=1,n1=0,n2=0,prev=sums[0]>=med;for(let i=0;i<n;i++){const b=sums[i]>=med;if(b)n1++;else n2++;if(i>0&&b!==prev)runs++;prev=b;}
+    const eR=2*n1*n2/n+1,vR=(2*n1*n2*(2*n1*n2-n))/(n*n*(n-1)),zR=(runs-eR)/Math.sqrt(vR);
+    let inA=0,inN=0,ntA=0,ntN=0;for(let i=1;i<n;i++){const ps=new Set(H[i-1].slice(0,5)),cs=new Set(H[i].slice(0,5));for(let x=1;x<=M.pool;x++){if(ps.has(x)){inN++;if(cs.has(x))inA++;}else{ntN++;if(cs.has(x))ntA++;}}}
+    const pIn=inA/inN,pOut=ntA/ntN;
+    const rows=[
+      ['Uniformity &chi;&sup2;','&chi;&sup2;='+chiW.toFixed(1)+'/df'+dfW,pW>0.01],
+      ['Serial corr (lags 1&ndash;40)','max|r|='+Math.abs(mAC).toFixed(3)+' (&plusmn;'+band.toFixed(3)+')',Math.abs(mAC)<band*1.6],
+      ['Runs test',runs+' vs '+eR.toFixed(0)+' (z='+zR.toFixed(2)+')',Math.abs(zR)<2.58],
+      ['Lag-1 information',pIn.toFixed(4)+' vs '+pOut.toFixed(4),Math.abs(pIn-pOut)<0.01]
+    ];
+    const allPass=rows.every(r=>r[2]);
+    return '<p class="sub" style="margin:0 0 6px">'+n+' real draws, white 1&ndash;'+M.pool+'.</p>'+
+      '<table class="lab"><thead><tr><th>Test</th><th>Statistic</th><th>Result</th></tr></thead><tbody>'+
+      rows.map(r=>'<tr><td>'+r[0]+'</td><td class="n">'+r[1]+'</td><td>'+(r[2]?'&#9989;':'&#9888;&#65039;')+'</td></tr>').join('')+'</tbody></table>'+
+      '<div class="verdict '+(allPass?'pass':'warn')+'">'+(allPass?'Consistent with a fair, memoryless random process &mdash; no exploitable structure.':'A test flagged &mdash; check for artifacts before claiming a signal.')+'</div>'+
+      '<div class="labnote"><b>Methodology note:</b> two alarming-looking tests (a spectral peak, a 0.91 &ldquo;draw-to-draw correlation&rdquo;) were <b>rejected as artifacts of the test itself</b> &mdash; fair random reproduces both. Catching your own false positives is the point.</div>';
+  }
+
+  function panelEV(k){
+    const M=META[k],cash=DATA[k].cashLumpSum||0;
+    let fixed=0;M.fixed.forEach(function(p){fixed+=p[0]/p[1];});
+    const t=net(cash),jEVgross=cash/M.jodds,jEVnet=t.net/M.jodds,totNet=fixed+jEVnet,breakeven=(M.price-fixed)*M.jodds;
+    return '<p class="sub" style="margin:0 0 8px">EV of one $'+M.price+' ticket, using the <b>cash</b> value ('+moneyM(cash)+') + Oklahoma after-tax &mdash; not the advertised annuity.</p>'+
+      '<table class="lab"><tbody>'+
+      '<tr><td>Fixed (non-jackpot) prizes</td><td class="n">$'+fixed.toFixed(3)+'</td></tr>'+
+      '<tr><td>Jackpot EV (cash, pre-tax)</td><td class="n">$'+jEVgross.toFixed(3)+'</td></tr>'+
+      '<tr><td>Jackpot EV (cash, after tax)</td><td class="n">$'+jEVnet.toFixed(3)+'</td></tr>'+
+      '<tr><td><b>Total EV / ticket</b></td><td class="n"><b>$'+totNet.toFixed(3)+'</b> vs $'+M.price+'</td></tr>'+
+      '</tbody></table>'+
+      '<div class="verdict '+(totNet>=M.price?'pass':'warn')+'">'+(totNet>=M.price?'+EV now (rare) &mdash; splitting at big jackpots erases it.':'Negative EV. You keep ~'+(totNet/M.price*100).toFixed(0)+'&cent; per dollar.')+'</div>'+
+      '<div class="labnote">Gross break-even &asymp; '+moneyM(breakeven)+'; after cash+tax the real threshold is ~'+moneyM(breakeven/0.585)+', where ticket sales spike and you&rsquo;d likely split it. The one historical +EV window was Cash WinFall&rsquo;s rolldown &mdash; neither game has one.</div>';
+  }
+
+  function panelWheel(k){
+    const M=META[k];
+    return '<p class="sub" style="margin:0 0 8px">A real <b>covering design</b>: enter 6&ndash;12 white numbers (1&ndash;'+M.pool+'). It builds the fewest tickets that <b>guarantee a 3-match if any 3 of your numbers are drawn</b>.</p>'+
+      '<div class="labrow"><input class="labinput" id="wheelin" placeholder="e.g. 5, 8, 21, 28, 42, 52, 61, 64"></div>'+
+      '<div class="labrow"><button class="mimicbtn" id="wheelgo">build the wheel</button></div>'+
+      '<div id="wheelout"></div>';
+  }
+  function buildWheel(){
+    const M=META[GAME],raw=(document.getElementById('wheelin').value||'').split(/[^0-9]+/).map(Number).filter(x=>x>=1&&x<=M.pool);
+    let nums=[...new Set(raw)].sort((a,b)=>a-b);const out=document.getElementById('wheelout');
+    if(nums.length<6){out.innerHTML='<div class="verdict warn">Enter at least 6 distinct numbers (1&ndash;'+M.pool+').</div>';return;}
+    if(nums.length>12)nums=nums.slice(0,12);
+    const comb=(arr,r)=>{const res=[];(function rec(s,c){if(c.length===r){res.push(c.slice());return;}for(let i=s;i<arr.length;i++){c.push(arr[i]);rec(i+1,c);c.pop();}})(0,[]);return res;};
+    const need=new Set(comb(nums,3).map(t=>t.join('-')));const total=need.size;
+    const fives=comb(nums,5),tickets=[];
+    while(need.size>0&&tickets.length<300){let best=null,bc=-1;for(const f of fives){let cov=0;for(const t of comb(f,3))if(need.has(t.join('-')))cov++;if(cov>bc){bc=cov;best=f;}}if(bc<=0)break;tickets.push(best);for(const t of comb(best,3))need.delete(t.join('-'));}
+    const cost=tickets.length*M.price;
+    out.innerHTML='<div class="verdict pass">'+tickets.length+' tickets cover all '+total+' of your 3-number combos &rarr; guaranteed &ge; one 3-match if any 3 of your '+nums.length+' numbers hit. Cost: $'+cost+'.</div>'+
+      '<div class="labrow">'+tickets.map(t=>'<span class="tik">'+t.join('  ')+'</span>').join('')+'</div>'+
+      '<div class="labnote">Pick your '+M.sp+' separately. A 3-match pays a small fixed prize &mdash; a wheel <i>guarantees</i> low-tier structure, it is not profit. This is the real math behind &ldquo;lottery wheels.&rdquo;</div>';
+  }
+
+  function panelBT(k){
+    return '<p class="sub" style="margin:0 0 8px">Walk-forward: build tickets from <b>only the past</b>, score against the real draw. The honest backtest.</p>'+
+      '<div class="labrow"><span class="sub">Method:</span>'+
+      '<select class="labinput" id="btmethod" style="width:auto;flex:1"><option value="edge">edge (hot-weighted)</option><option value="hot">most-drawn</option><option value="random">random</option><option value="cold">cold / due</option></select></div>'+
+      '<div class="labrow"><span class="sub">Tickets/draw:</span>'+
+      '<select class="labinput" id="bttix" style="width:auto"><option>1</option><option>50</option><option>500</option></select>'+
+      '<button class="mimicbtn" id="btgo">run</button></div>'+
+      '<div id="btout"></div>';
+  }
+  function runBT(){
+    const k=GAME,M=META[k],H=hist(k),n=H.length,warm=Math.min(200,Math.floor(n/3));
+    const method=document.getElementById('btmethod').value,T=+document.getElementById('bttix').value;
+    const out=document.getElementById('btout');out.innerHTML='<p class="sub">crunching '+((n-warm)*T).toLocaleString()+' tickets&hellip;</p>';
+    setTimeout(function(){
+      const freq=new Array(M.pool).fill(0);for(let i=0;i<warm;i++)for(let j=0;j<5;j++)freq[H[i][j]-1]++;
+      const wfun={edge:f=>f.map(v=>(v+1)*(v+1)),hot:f=>f.map(v=>Math.pow(v+1,4)),random:f=>f.map(()=>1),cold:f=>{const mx=Math.max.apply(null,f);return f.map(v=>mx+1-v);}}[method];
+      let tested=0,matchSum=0,h3=0,h4=0,h5=0,won=0,drawsHit=0;
+      for(let t=warm;t<n;t++){
+        const act=new Set(H[t].slice(0,5)),w=wfun(freq),cum=[];let s=0;for(const x of w){s+=x;cum.push(s);}
+        let drawBest=0;
+        for(let m=0;m<T;m++){const set=new Set();while(set.size<5){const r=Math.random()*s;let lo=0,hi=M.pool-1;while(lo<hi){const mid=(lo+hi)>>1;if(cum[mid]<r)lo=mid+1;else hi=mid;}set.add(lo+1);}
+          let ov=0;for(const x of set)if(act.has(x))ov++;if(T===1)matchSum+=ov;if(ov>drawBest)drawBest=ov;if(ov>=3){won+=M.prizes[ov]||0;if(ov===3)h3++;else if(ov===4)h4++;else h5++;}}
+        if(drawBest>=3)drawsHit++;
+        for(let j=0;j<5;j++)freq[H[t][j]-1]++;tested++;
+      }
+      const spent=tested*T*M.price,net2=won-spent,avg=(T===1)?(matchSum/tested):null;
+      out.innerHTML='<table class="lab"><tbody>'+
+        '<tr><td>Draws tested</td><td class="n">'+tested+'</td></tr>'+
+        (avg!=null?'<tr><td>Avg matched / draw</td><td class="n">'+avg.toFixed(3)+' of 5</td></tr>':'')+
+        '<tr><td>Draws with a 3+ match</td><td class="n">'+drawsHit+' ('+(drawsHit/tested*100).toFixed(0)+'%)</td></tr>'+
+        '<tr><td>3 / 4 / 5-hits</td><td class="n">'+h3+' / '+h4+' / '+h5+'</td></tr>'+
+        '<tr><td>Won &minus; spent</td><td class="n">$'+won.toLocaleString()+' &minus; $'+spent.toLocaleString()+'</td></tr>'+
+        '<tr><td><b>Net</b></td><td class="n"><b style="color:'+(net2>=0?'var(--good)':'var(--red)')+'">$'+net2.toLocaleString()+'</b></td></tr>'+
+        '</tbody></table>'+
+        '<div class="labnote">'+(T===1?'One ticket/draw averages ~'+avg.toFixed(2)+'/5 &mdash; same as random, any method. ':'Buying '+T+'/draw hits 3+ &ldquo;often,&rdquo; but look at the net. ')+'The net stays red. That&rsquo;s the whole thesis in one panel.</div>';
+    },30);
+  }
+
+  function panelCrack(){
+    return '<div class="labnote" style="background:var(--bg-input);line-height:1.55">'+
+      '<b>Is either game crackable? The honest answer.</b><br><br>'+
+      '<b>From the numbers alone &mdash; no.</b> Both games are statistically indistinguishable from fair randomness. For independent draws, H(next | history) = H(next) &mdash; the past carries zero information. No model beats chance; the walk-forward proves it.<br><br>'+
+      '<b>But this family <i>was</i> cracked once &mdash; from the inside.</b> Lotto America descends from MUSL&rsquo;s Hot Lotto. Eddie Tipton, MUSL&rsquo;s own security director, planted self-deleting code that made the RNG predictable on three dates a year, claiming jackpots until a $16.5M ticket unraveled it (convicted 2017). That is the one documented crack &mdash; an <b>insider/implementation attack</b>, not prediction from past draws.<br><br>'+
+      '<b>The only real levers:</b> more distinct lines, the better-odds game, covering designs for guaranteed low-tier structure, avoiding popular combos so you don&rsquo;t split, and buying only when EV is closest. None predict the draw.<br><br>'+
+      '<b>Pre-registered proof:</b> a fixed prediction is committed to the public data repo (<code>predictions.json</code>, commit <code>2af6f2c</code>) with a tamper-proof timestamp, locked before the draw. Over many draws it scores at chance &mdash; and that prospective null <i>is</i> the proof.</div>';
+  }
+
+  function render(){
+    const b=document.getElementById('labbody');if(!b)return;
+    document.querySelectorAll('.labgame').forEach(el=>el.style.display=(TAB==='crack')?'none':'flex');
+    if(TAB==='rng')b.innerHTML=panelRNG(GAME);
+    else if(TAB==='ev')b.innerHTML=panelEV(GAME);
+    else if(TAB==='wheel'){b.innerHTML=panelWheel(GAME);document.getElementById('wheelgo').onclick=buildWheel;}
+    else if(TAB==='bt'){b.innerHTML=panelBT(GAME);document.getElementById('btgo').onclick=runBT;}
+    else b.innerHTML=panelCrack();
+  }
+  document.querySelectorAll('.labtab').forEach(t=>t.onclick=function(){document.querySelectorAll('.labtab').forEach(x=>x.classList.remove('active'));t.classList.add('active');TAB=t.dataset.t;render();});
+  document.querySelectorAll('.gtoggle').forEach(t=>t.onclick=function(){document.querySelectorAll('.gtoggle').forEach(x=>x.classList.remove('active'));t.classList.add('active');GAME=t.dataset.g;render();});
+  render();
+})();
 </script>
 </body>
 </html>
