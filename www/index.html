@@ -44,6 +44,8 @@
   .lastwin{margin:12px 0 4px;background:linear-gradient(180deg,#F3FBF6,var(--bg-input));border:1.5px solid var(--line2);border-radius:12px;padding:11px 12px}
   .lwlbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--deep);font-weight:700;margin-bottom:7px}
   .lwdate{font-weight:700;color:var(--pink)}
+  .lwoutcome{margin-top:8px;font-size:12px;font-weight:700;color:var(--deep);background:var(--panel);border:1.5px solid var(--line);border-radius:9px;padding:7px 9px}
+  .lwoutcome.won{background:#fff6e0;border-color:#ffdf9e;color:#8a5a00}
   .foot{margin-top:18px;font-size:11px;color:var(--muted);background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:11px 13px}
   .refresh{display:block;width:100%;margin-top:16px;padding:13px;border:0;border-radius:14px;background:linear-gradient(180deg,var(--grad-top),var(--grad-bot));color:#fff;font-size:15px;font-weight:700;box-shadow:0 4px 12px var(--glow),inset 0 2px 4px rgba(255,255,255,.35),inset 0 -2px 4px rgba(0,0,0,.08);text-shadow:0 1px 1px rgba(0,0,0,.15)}
   .refresh:active{transform:translateY(1px)}
@@ -120,7 +122,7 @@ const money=n=>'$'+Math.round(n).toLocaleString('en-US');
 const moneyM=n=>'$'+(n/1e6).toLocaleString('en-US',{maximumFractionDigits:2})+'M';
 function fedTax(x){const b=DATA.taxes.fed;let t=0;for(let i=0;i<b.length;i++){const lo=b[i][0],r=b[i][1],hi=i+1<b.length?b[i+1][0]:Infinity;if(x>lo)t+=(Math.min(x,hi)-lo)*r;else break;}return t;}
 function net(cash){const f=fedTax(cash),o=cash*DATA.taxes.okTopRate;return{net:cash-f-o,f,o};}
-function nextDraw(days,h,m){const now=new Date();for(let i=0;i<14;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i,h,m);if(days.includes(d.getDay())&&d>now)return d;}return now;}
+function nextDraw(days,h,m,afterISO){const now=new Date();let floor=now.getTime();if(afterISO){const p=String(afterISO).split('-');if(p.length===3){const lt=new Date(+p[0],+p[1]-1,+p[2],h,m,30,0).getTime();if(lt>floor)floor=lt;}}const base=new Date(floor);let d=base;for(let i=0;i<21;i++){d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+i,h,m,0,0);if(days.includes(d.getDay())&&d.getTime()>floor)return d;}return d;}
 function left(ms){if(ms<0)ms=0;const s=Math.floor(ms/1000),dd=Math.floor(s/86400),hh=Math.floor(s%86400/3600),mm=Math.floor(s%3600/60),ss=s%60;return (dd?dd+'d ':'')+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');}
 function balls(t,cls){let h='<div class="balls">';t.white.forEach(n=>h+=`<span class="ball">${n}</span>`);h+=`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span></div>`;return h;}
 function antiShareLine(gkey){
@@ -134,16 +136,16 @@ function antiShareLine(gkey){
 }
 
 function card(g,gkey){
-  const nd=nextDraw(g.drawDays,g.h,g.m), t=net(g.cashLumpSum);
+  const nd=nextDraw(g.drawDays,g.h,g.m,g.dataThrough), t=net(g.cashLumpSum);
   const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
   const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
   const ldr=H.length?H[H.length-1]:null;
-  return `<div class="card" data-d="${g.drawDays}" data-h="${g.h}" data-m="${g.m}">
+  return `<div class="card" data-d="${g.drawDays}" data-h="${g.h}" data-m="${g.m}" data-through="${g.dataThrough||''}">
     <div class="ct"><span class="game">${g.name}</span><span class="matrix">${g.matrix}</span></div>
     <div class="method">${g.method}</div>
     <div class="method" style="color:${g.live?'var(--good)':'var(--muted)'}">${g.live?'● live — auto-updates':'● data through '+g.dataThrough+' · refreshes from the live feed when online'}</div>
     ${ldr?`<div class="lastwin"><div class="lwlbl">🏆 Most recent winning numbers${g.dataThrough?` · <span class="lwdate">${g.dataThrough}</span>`:''}</div>
-      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div></div>`:''}
+      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div>${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
     <div class="count"><div class="lbl">next drawing</div><div class="clock" data-clk>${left(nd-new Date())}</div>
       <div class="tag">${nd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div></div>
     <div class="jrow"><span class="k">Jackpot</span><span class="v">${moneyM(g.advertisedAnnuity)}</span></div>
@@ -222,7 +224,7 @@ async function syncData(){
     const r=await fetch('https://raw.githubusercontent.com/SaraSineadiii/saras-luck-data/main/data.json',{cache:'no-store'});
     if(!r.ok) throw new Error('bad');
     const j=await r.json();
-    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
+    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.jackpotOutcome)DATA[k].jackpotOutcome=g.jackpotOutcome; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
     DATA.updated=(j.updated||'').slice(0,10);
     try{localStorage.setItem('saraLuck',JSON.stringify(DATA));}catch(e){}
     render();
@@ -230,7 +232,7 @@ async function syncData(){
 }
 render();
 document.getElementById('refreshBtn').addEventListener('click',()=>syncData());
-setInterval(()=>{document.querySelectorAll('.card').forEach(c=>{const d=c.dataset.d.split(',').map(Number);const nd=nextDraw(d,+c.dataset.h,+c.dataset.m);const e=c.querySelector('[data-clk]');if(e)e.textContent=left(nd-new Date());});},1000);
+setInterval(()=>{document.querySelectorAll('.card').forEach(c=>{const d=c.dataset.d.split(',').map(Number);const nd=nextDraw(d,+c.dataset.h,+c.dataset.m,c.dataset.through);const e=c.querySelector('[data-clk]');if(e)e.textContent=left(nd-new Date());});},1000);
 setTimeout(()=>syncData(),400);
 
 /* ================= Thesis Lab ================= */
