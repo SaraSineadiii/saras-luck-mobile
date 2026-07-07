@@ -159,6 +159,8 @@ function card(g,gkey){
     <div class="jrow"><span class="k">Odds</span><span class="v">1 in ${g.odds.toLocaleString()}</span></div>
     <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
+    ${g.ticketFusion?`<div class="ticket"><h4>★★ #1 line — fusion pick</h4>${balls(g.ticketFusion,g.cls)}
+      <div class="tag">Stacked consensus (frequency + recent form + transitions, meta-learned blend), never-drawn, low split-risk. Same draw odds as any line — built to be worth the most if it hits. Auto-recomputes every draw; the 🤖 learner scores it forever.</div></div>`:''}
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
       <div class="tag">Hot + recent + persistent across the whole history.</div></div>
     <div class="ticket"><h4>Most-drawn line (${g.draws} draws, ${g.windowStart})</h4>${balls(g.ticketData,g.cls)}</div>
@@ -192,7 +194,7 @@ function render(){
   renderLearner();
   newMimic('m-PB',69,26,'red'); newMimic('m-SB',52,10,'gold');
   document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
-  document.getElementById('foot').innerHTML = '<b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🛡 Least-shared line</b> — the hottest numbers above 31; same odds, but since most players pick birthdays (1–31), a win here is less likely to be split. The one lever that raises your expected take.<br><br><b>🎲 Perfect mimic</b> — a crypto-grade fair draw that regenerates each press (a perfect copy of a random draw is itself random — not a prediction).<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 33 independent AI agents confirmed no method predicts the draw. The only real lever is not splitting. Play one you like and set a budget.';
+  document.getElementById('foot').innerHTML = '<b>★★ #1 Fusion line</b> — the compound of every tested method: consensus of frequency + recent form + transitions (meta-learned blend), then the best never-drawn, low-split-risk set. No line can be more likely to be <i>drawn</i> (proven); this one is built to be worth the most if it <i>hits</i>.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🛡 Least-shared line</b> — the hottest numbers above 31; same odds, but since most players pick birthdays (1–31), a win here is less likely to be split. The one lever that raises your expected take.<br><br><b>🎲 Perfect mimic</b> — a crypto-grade fair draw that regenerates each press (a perfect copy of a random draw is itself random — not a prediction).<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 33 independent AI agents confirmed no method predicts the draw. The only real lever is not splitting. Play one you like and set a budget.';
 }
 
 /* ---- self-updater: fetch Texas Powerball CSV, recompute freq + tickets ---- */
@@ -250,7 +252,7 @@ async function syncData(){
     const r=await fetch('https://raw.githubusercontent.com/SaraSineadiii/saras-luck-data/main/data.json',{cache:'no-store'});
     if(!r.ok) throw new Error('bad');
     const j=await r.json();
-    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.jackpotOutcome)DATA[k].jackpotOutcome=g.jackpotOutcome; if(g.learner)DATA[k].learner=g.learner; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
+    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.ticketFusion)DATA[k].ticketFusion=g.ticketFusion; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.jackpotOutcome)DATA[k].jackpotOutcome=g.jackpotOutcome; if(g.learner)DATA[k].learner=g.learner; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
     DATA.updated=(j.updated||'').slice(0,10);
     try{localStorage.setItem('saraLuck',JSON.stringify(DATA));}catch(e){}
     render();
