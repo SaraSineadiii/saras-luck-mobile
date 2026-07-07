@@ -114,14 +114,15 @@ const SEED = {
   taxes:{ okTopRate:0.045, fed:[[0,0.10],[12400,0.12],[50400,0.22],[105700,0.24],[201775,0.32],[256225,0.35],[640600,0.37]] },
   powerball:{ name:"Powerball", matrix:"5 of 69 + 1 of 26", odds:292201338, method:"physical ball machine (Tallahassee FL)",
     drawDays:[1,3,6], h:21, m:59, advertisedAnnuity:375000000, cashLumpSum:170600000, draws:1375, windowStart:"since 2015 matrix",
-    ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:true, dataThrough:"2026-07-01" },
+    ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:false, dataThrough:"2026-07-01" },
   lottoAmerica:{ name:"Lotto America", matrix:"5 of 52 + 1 of 10", odds:25989600, method:"certified RNG (Johnston IA) since 2023",
     drawDays:[1,3,6], h:21, m:15, advertisedAnnuity:31160000, cashLumpSum:14170000, draws:502, windowStart:"RNG era only",
     ticketData:{white:[8,9,15,42,51],special:4}, ticketEdge:{white:[5,8,42,47,51],special:4}, sp:"SB", cls:"gold", live:false, dataThrough:"2026-06-29" },
   updated:"bundled 2026-07-01"
 };
 let DATA = JSON.parse(JSON.stringify(SEED));
-try{ const c=localStorage.getItem('saraLuck'); if(c){const p=JSON.parse(c); DATA=Object.assign(DATA,p);} }catch(e){}
+try{ const c=localStorage.getItem('saraLuck'); if(c){const p=JSON.parse(c);
+  if(p&&p.powerball&&(p.powerball.draws||0)>=SEED.powerball.draws){ DATA=Object.assign(DATA,p); DATA.taxes=SEED.taxes; } } }catch(e){}
 
 const money=n=>'$'+Math.round(n).toLocaleString('en-US');
 const moneyM=n=>'$'+(n/1e6).toLocaleString('en-US',{maximumFractionDigits:2})+'M';
@@ -156,7 +157,7 @@ function card(g,gkey){
     <div class="jrow"><span class="k">Jackpot</span><span class="v">${moneyM(g.advertisedAnnuity)}</span></div>
     <div class="jrow"><span class="k">Cash lump sum</span><span class="v">${moneyM(g.cashLumpSum)}</span></div>
     <div class="jrow"><span class="k">Odds</span><span class="v">1 in ${g.odds.toLocaleString()}</span></div>
-    <div class="net"><div class="cap">Win alone in Oklahoma, after 37% federal + 4.5% state</div>
+    <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
       <div class="tag">Hot + recent + persistent across the whole history.</div></div>
@@ -207,6 +208,7 @@ async function refreshPB(manual){
     }catch(e){}
     if(!rows){ // fallback: NY open-data API (CORS-enabled — works in a browser too)
       const r2=await fetch('https://data.ny.gov/resource/d6yy-54nr.json?$limit=5000',{cache:'no-store'});
+      if(!r2.ok) throw new Error('ny http '+r2.status);
       const j=await r2.json();
       rows=j.map(o=>{const d=o.draw_date.slice(0,10).split('-');const n=o.winning_numbers.trim().split(/\s+/).map(Number);return{key:+d[0]*10000+ +d[1]*100+ +d[2],w:n.slice(0,5),s:n[5]};}).filter(x=>x.key>=20151007).sort((a,b)=>a.key-b.key);
     }
@@ -226,9 +228,12 @@ async function refreshPB(manual){
     for(const win of [50,77,100,150]){const zR=zf(cntW(win));for(const wr of [0.3,0.5,0.7,1.0])for(const wp of [0,0.25,0.5,0.75,1.0]){zA.map((v,i)=>[i+1,v+wr*zR[i]+wp*((c1[i]>a1&&c2[i]>a2)?1:0)]).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(t=>app[t[0]-1]++);}}
     const md=wf.map((v,i)=>({n:i+1,c:v,r:r77[i]})).sort((a,b)=>b.c-a.c||b.r-a.r||a.n-b.n).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
     const ew=app.map((v,i)=>({n:i+1,p:v})).sort((a,b)=>b.p-a.p||wf[b.n-1]-wf[a.n-1]).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
+    const prevThrough=DATA.powerball.dataThrough;
     DATA.powerball.draws=rows.length;
     DATA.powerball.history=rows.map(r=>[...r.w.slice().sort((a,b)=>a-b),r.s]);
     DATA.powerball.dataThrough=String(last.key).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
+    if(prevThrough!==DATA.powerball.dataThrough) delete DATA.powerball.jackpotOutcome; /* outcome belonged to an older draw */
+    DATA.powerball.live=true;
     DATA.powerball.ticketData={white:md,special:top(pf,1)[0]};
     DATA.powerball.ticketEdge={white:ew,special:top(pf,1)[0]};
     DATA.updated='updated '+String(last.key).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
@@ -264,7 +269,7 @@ setTimeout(()=>syncData(),400);
   function hist(k){return (DATA[k]&&DATA[k].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[k])||[];}
   const META={
     powerball:{pool:69,spool:26,price:2,jodds:292201338,fixed:[[1000000,11688053.52],[50000,913129.18],[100,36525.17],[100,14494.11],[7,579.76],[7,701.33],[4,91.98],[4,38.32]],prizes:{3:7,4:100,5:1000000},sp:'PB'},
-    lottoAmerica:{pool:52,spool:10,price:1,jodds:25989600,fixed:[[20000,2887733.33],[1000,543741.60],[100,60415.73],[20,12613.36],[5,1401.49],[5,913.63],[2,158.02],[2,61.74]],prizes:{3:5,4:100,5:20000},sp:'SB'}
+    lottoAmerica:{pool:52,spool:10,price:1,jodds:25989600,fixed:[[20000,2887733.33],[1000,110594.04],[100,12288.23],[20,2404.22],[5,267.14],[5,160.28],[2,29.14],[2,16.94]],prizes:{3:5,4:100,5:20000},sp:'SB'}
   };
   let TAB='rng', GAME='powerball';
 
@@ -306,7 +311,7 @@ setTimeout(()=>syncData(),400);
       '<tr><td><b>Total EV / ticket</b></td><td class="n"><b>$'+totNet.toFixed(3)+'</b> vs $'+M.price+'</td></tr>'+
       '</tbody></table>'+
       '<div class="verdict '+(totNet>=M.price?'pass':'warn')+'">'+(totNet>=M.price?'+EV now (rare) &mdash; splitting at big jackpots erases it.':'Negative EV. You keep ~'+(totNet/M.price*100).toFixed(0)+'&cent; per dollar.')+'</div>'+
-      '<div class="labnote">Gross break-even &asymp; '+moneyM(breakeven)+'; after cash+tax the real threshold is ~'+moneyM(breakeven/0.585)+', where ticket sales spike and you&rsquo;d likely split it. The one historical +EV window was Cash WinFall&rsquo;s rolldown &mdash; neither game has one.</div>';
+      '<div class="labnote">Gross break-even &asymp; '+moneyM(breakeven)+' cash; after tax the real threshold is ~'+moneyM(breakeven/0.585)+' cash (not the advertised annuity), where ticket sales spike and you&rsquo;d likely split it. The one historical +EV window was Cash WinFall&rsquo;s rolldown &mdash; neither game has one.</div>';
   }
 
   function panelWheel(k){
@@ -343,7 +348,9 @@ setTimeout(()=>syncData(),400);
   function runBT(){
     const k=GAME,M=META[k],H=hist(k),n=H.length,warm=Math.min(200,Math.floor(n/3));
     const method=document.getElementById('btmethod').value,T=+document.getElementById('bttix').value;
-    const out=document.getElementById('btout');out.innerHTML='<p class="sub">crunching '+((n-warm)*T).toLocaleString()+' tickets&hellip;</p>';
+    const out=document.getElementById('btout');
+    if(n<50){out.innerHTML='<div class="verdict warn">No draw history loaded.</div>';return;}
+    out.innerHTML='<p class="sub">crunching '+((n-warm)*T).toLocaleString()+' tickets&hellip;</p>';
     setTimeout(function(){
       const freq=new Array(M.pool).fill(0);for(let i=0;i<warm;i++)for(let j=0;j<5;j++)freq[H[i][j]-1]++;
       const wfun={edge:f=>f.map(v=>(v+1)*(v+1)),hot:f=>f.map(v=>Math.pow(v+1,4)),random:f=>f.map(()=>1),cold:f=>{const mx=Math.max.apply(null,f);return f.map(v=>mx+1-v);}}[method];
@@ -365,7 +372,7 @@ setTimeout(()=>syncData(),400);
         '<tr><td>Won &minus; spent</td><td class="n">$'+won.toLocaleString()+' &minus; $'+spent.toLocaleString()+'</td></tr>'+
         '<tr><td><b>Net</b></td><td class="n"><b style="color:'+(net2>=0?'var(--good)':'var(--red)')+'">$'+net2.toLocaleString()+'</b></td></tr>'+
         '</tbody></table>'+
-        '<div class="labnote">'+(T===1?'One ticket/draw averages ~'+avg.toFixed(2)+'/5 &mdash; same as random, any method. ':'Buying '+T+'/draw hits 3+ &ldquo;often,&rdquo; but look at the net. ')+'The net stays red. That&rsquo;s the whole thesis in one panel.</div>';
+        '<div class="labnote">'+(T===1?'One ticket/draw averages ~'+avg.toFixed(2)+'/5 &mdash; same as random, any method. ':'Buying '+T+'/draw hits 3+ &ldquo;often,&rdquo; but look at the net. ')+'The net stays red. That&rsquo;s the whole thesis in one panel. (Sim scores white balls only &mdash; special-ball tiers excluded, so real returns run slightly higher; the conclusion is unchanged.)</div>';
     },30);
   }
 
@@ -376,7 +383,9 @@ setTimeout(()=>syncData(),400);
   }
   function runChrono(){
     const k=GAME,M=META[k],H=hist(k),n=H.length,warm=Math.min(200,Math.floor(n/3));
-    const out=document.getElementById('chronoout');out.innerHTML='<p class="sub">walking '+(n-warm)+' draws in time order&hellip;</p>';
+    const out=document.getElementById('chronoout');
+    if(n<50){out.innerHTML='<div class="verdict warn">No draw history loaded.</div>';return;}
+    out.innerHTML='<p class="sub">walking '+(n-warm)+' draws in time order&hellip;</p>';
     setTimeout(function(){
       const L=Math.exp(-0.02),w=new Array(M.pool).fill(0);
       for(let i=0;i<warm;i++){for(let j=0;j<M.pool;j++)w[j]*=L;for(let j=0;j<5;j++)w[H[i][j]-1]+=1;}
