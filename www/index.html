@@ -118,11 +118,11 @@
 const SEED = {
   taxes:{ okTopRate:0.045, fed:[[0,0.10],[12400,0.12],[50400,0.22],[105700,0.24],[201775,0.32],[256225,0.35],[640600,0.37]] },
   powerball:{ name:"Powerball", matrix:"5 of 69 + 1 of 26", odds:292201338, method:"physical ball machine (Tallahassee FL)",
-    drawDays:[1,3,6], h:21, m:59, advertisedAnnuity:375000000, cashLumpSum:170600000, draws:1375, windowStart:"since 2015 matrix",
-    ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:false, dataThrough:"2026-07-01" },
+    drawDays:[1,3,6], h:21, m:59, advertisedAnnuity:397000000, cashLumpSum:194700000, draws:1377, windowStart:"since 2015 matrix",
+    ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:false, dataThrough:"2026-07-06" },
   lottoAmerica:{ name:"Lotto America", matrix:"5 of 52 + 1 of 10", odds:25989600, method:"certified RNG (Johnston IA) since 2023",
-    drawDays:[1,3,6], h:21, m:15, advertisedAnnuity:31160000, cashLumpSum:14170000, draws:502, windowStart:"RNG era only",
-    ticketData:{white:[8,9,15,42,51],special:4}, ticketEdge:{white:[5,8,42,47,51],special:4}, sp:"SB", cls:"gold", live:false, dataThrough:"2026-06-29" },
+    drawDays:[1,3,6], h:21, m:15, advertisedAnnuity:31000000, cashLumpSum:14580000, draws:505, windowStart:"RNG era only",
+    ticketData:{white:[8,9,15,42,51],special:4}, ticketEdge:{white:[5,8,42,47,51],special:4}, sp:"SB", cls:"gold", live:false, dataThrough:"2026-07-06" },
   updated:"bundled 2026-07-01"
 };
 let DATA = JSON.parse(JSON.stringify(SEED));
@@ -165,7 +165,7 @@ function card(g,gkey){
     <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
     ${g.ticketFusion?`<div class="ticket"><h4>★★ #1 line — fusion pick</h4>${balls(g.ticketFusion,g.cls)}
-      <div class="tag">Stacked consensus (frequency + recent form + transitions, meta-learned blend), never-drawn, low split-risk. Same draw odds as any line — built to be worth the most if it hits. Auto-recomputes every draw; the 🤖 learner scores it forever.</div></div>`:''}
+      <div class="tag">Stacked consensus (frequency + recent form + last-draw transition, fixed 0.4/0.4/0.2 blend), never-drawn, low split-risk. Same draw odds as any line — built to be worth the most if it hits. Auto-recomputes every draw; the 🤖 learner scores it forever.</div></div>`:''}
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
       <div class="tag">Hot + recent + persistent across the whole history.</div></div>
     <div class="ticket"><h4>Most-drawn line (${g.draws} draws, ${g.windowStart})</h4>${balls(g.ticketData,g.cls)}</div>
@@ -204,7 +204,7 @@ function renderAnomaly(){
     const b=g.specialBias; if(!b) continue;
     h+='<br><br><b>'+name+' '+sp+':</b> hottest #<b>'+b.hot+'</b> at '+(b.rate*100).toFixed(1)+'% ('+b.count+'/'+b.draws+', exp '+b.expected+'), z='+b.z+'. '+
        (b.significant
-         ? '⭐ Significant after correction (p≈'+b.pCorrected+', ~1 in '+Math.round(1/b.pCorrected)+' under a perfect RNG). The one real lead — the app plays #'+b.hot+'. But it tilts only the '+sp+', not the 5 whites (the real bottleneck, which tested clean). On live trial: watch the z hold or fade.'
+         ? '⭐ Single-ball max test significant after correction (exact p≈'+b.pCorrected+', ~1 in '+Math.round(1/b.pCorrected)+'). Honest caveats: the whole-star distribution is only borderline'+(b.chiP!=null?' (χ² p≈'+b.chiP+')':'')+', it flips if ~5 hits are removed, and it tilts only the '+sp+' — NOT the 5 whites, so it does not change jackpot odds.'+(b.recentRate!=null?' Recent '+b.recentN+'-draw rate '+(b.recentRate*100).toFixed(1)+'%.':'')+' The app plays #'+b.hot+' — a real but marginal lead on live trial, not a jackpot key.'
          : 'not significant (p≈'+b.pCorrected+') — hottest ball is a within-noise near-tie; fair generator.');
   }
   body.innerHTML=h; if(el) el.style.display='block';
@@ -214,7 +214,7 @@ function render(){
   renderLearner(); renderAnomaly();
   newMimic('m-PB',69,26,'red','powerball'); newMimic('m-SB',52,10,'gold','lottoAmerica');
   document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
-  document.getElementById('foot').innerHTML = '<b>★★ #1 Fusion line</b> — the compound of every tested method: consensus of frequency + recent form + transitions (meta-learned blend), then the best never-drawn, low-split-risk set. No line can be more likely to be <i>drawn</i> (proven); this one is built to be worth the most if it <i>hits</i>.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🛡 Least-shared line</b> — the hottest numbers above 31; same odds, but since most players pick birthdays (1–31), a win here is less likely to be split. The one lever that raises your expected take.<br><br><b>🎲 Perfect mimic</b> — a crypto-grade fair draw that regenerates each press (a perfect copy of a random draw is itself random — not a prediction).<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 33 independent AI agents confirmed no method predicts the draw. The only real lever is not splitting. Play one you like and set a budget.';
+  document.getElementById('foot').innerHTML = '<b>★★ #1 Fusion line</b> — the compound of every tested method: consensus of frequency + recent form + last-draw transition (fixed 0.4/0.4/0.2 blend), then the best never-drawn, low-split-risk set. No line can be more likely to be <i>drawn</i> (proven); this one is built to be worth the most if it <i>hits</i>.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🛡 Least-shared line</b> — the hottest numbers above 31; same odds, but since most players pick birthdays (1–31), a win here is less likely to be split. The one lever that raises your expected take.<br><br><b>🎲 Behavior mimic</b> — trained on the real distribution of each game: uniform whites (their proven true behavior) + a special drawn from the real frequencies (favors the Lotto America hot star). Mimics the fingerprint, not the future.<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 58 independent AI agents across every method confirmed no line is more likely to be drawn. The only real lever is not splitting. Play one you like and set a budget.';
 }
 
 /* ---- self-updater: fetch Texas Powerball CSV, recompute freq + tickets ---- */
