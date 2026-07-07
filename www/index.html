@@ -171,14 +171,17 @@ function card(g,gkey){
     <div class="ticket"><h4>Most-drawn line (${g.draws} draws, ${g.windowStart})</h4>${balls(g.ticketData,g.cls)}</div>
     <div class="ticket"><h4>🛡 Least-shared line — less likely to split</h4>${balls(antiShareLine(gkey),g.cls)}
       <div class="tag">Hottest numbers above 31 — most players pick birthdays (1–31), so a win here is less likely to be shared. The one method that raises your expected take (payout, not odds).</div></div>
-    <div class="ticket"><h4>🎲 Perfect mimic (${g.matrix})</h4><div class="balls" id="m-${g.sp}"></div>
-      <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}')">new mimic draw</button>
-      <div class="tag">A crypto-grade fair draw — regenerates each press (a mimic of randomness is random). Same odds as any line.</div></div>
+    <div class="ticket"><h4>🎲 Behavior mimic — trained on ${g.name}'s distribution</h4><div class="balls" id="m-${g.sp}"></div>
+      <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">new mimic draw</button>
+      <div class="tag">Crypto-uniform whites (their proven true behavior) + a special drawn from the game's real distribution${gkey==='lottoAmerica'?' — favors the hot star the way the RNG actually does':' (≈ uniform for Powerball)'}. Mimics the fingerprint, not the future — same odds.</div></div>
   </div>`;
 }
 function rndInt(n){/* crypto-grade, modulo-bias-free */const g=window.crypto||window.msCrypto;if(g&&g.getRandomValues){const max=Math.floor(0x100000000/n)*n,a=new Uint32Array(1);let x;do{g.getRandomValues(a);x=a[0];}while(x>=max);return x%n;}return Math.floor(Math.random()*n);}
-function mimicLine(pool,spool){const w=new Set();while(w.size<5)w.add(1+rndInt(pool));return{white:[...w].sort((a,b)=>a-b),special:1+rndInt(spool)};}
-window.newMimic=function(id,pool,spool,cls){const t=mimicLine(pool,spool);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;};
+function weightedInt(weights){const tot=weights.reduce((a,b)=>a+b,0);if(!tot)return 1+rndInt(weights.length);let r=rndInt(tot);for(let i=0;i<weights.length;i++){r-=weights[i];if(r<0)return i+1;}return weights.length;}
+/* Behavior mimic: crypto-uniform whites (their proven true behavior) + special sampled from the game's
+   REAL observed distribution (computed from history — captures Lotto America's star-4 tilt). */
+function mimicLine(pool,spool,sfreq){const w=new Set();while(w.size<5)w.add(1+rndInt(pool));return{white:[...w].sort((a,b)=>a-b),special:(sfreq&&sfreq.length===spool)?weightedInt(sfreq):1+rndInt(spool)};}
+window.newMimic=function(id,pool,spool,cls,gkey){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}const t=mimicLine(pool,spool,sf);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;};
 function renderLearner(){
   const el=document.getElementById('learnerbody'); if(!el) return;
   let h='Every day the cloud runner pre-registers one ticket per method for the next draw, then scores it automatically when the result lands. Runs indefinitely, remembers everything — an honest out-of-sample ledger. If any method ever truly beat chance, it shows up here.';
@@ -202,14 +205,14 @@ function renderAnomaly(){
     h+='<br><br><b>'+name+' '+sp+':</b> hottest #<b>'+b.hot+'</b> at '+(b.rate*100).toFixed(1)+'% ('+b.count+'/'+b.draws+', exp '+b.expected+'), z='+b.z+'. '+
        (b.significant
          ? '⭐ Significant after correction (p≈'+b.pCorrected+', ~1 in '+Math.round(1/b.pCorrected)+' under a perfect RNG). The one real lead — the app plays #'+b.hot+'. But it tilts only the '+sp+', not the 5 whites (the real bottleneck, which tested clean). On live trial: watch the z hold or fade.'
-         : 'not significant (p≈'+b.pCorrected+') — fair generator.');
+         : 'not significant (p≈'+b.pCorrected+') — hottest ball is a within-noise near-tie; fair generator.');
   }
   body.innerHTML=h; if(el) el.style.display='block';
 }
 function render(){
   document.getElementById('games').innerHTML = card(DATA.powerball,'powerball') + card(DATA.lottoAmerica,'lottoAmerica');
   renderLearner(); renderAnomaly();
-  newMimic('m-PB',69,26,'red'); newMimic('m-SB',52,10,'gold');
+  newMimic('m-PB',69,26,'red','powerball'); newMimic('m-SB',52,10,'gold','lottoAmerica');
   document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
   document.getElementById('foot').innerHTML = '<b>★★ #1 Fusion line</b> — the compound of every tested method: consensus of frequency + recent form + transitions (meta-learned blend), then the best never-drawn, low-split-risk set. No line can be more likely to be <i>drawn</i> (proven); this one is built to be worth the most if it <i>hits</i>.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🛡 Least-shared line</b> — the hottest numbers above 31; same odds, but since most players pick birthdays (1–31), a win here is less likely to be split. The one lever that raises your expected take.<br><br><b>🎲 Perfect mimic</b> — a crypto-grade fair draw that regenerates each press (a perfect copy of a random draw is itself random — not a prediction).<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 33 independent AI agents confirmed no method predicts the draw. The only real lever is not splitting. Play one you like and set a budget.';
 }
