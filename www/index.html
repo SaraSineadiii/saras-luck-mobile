@@ -146,6 +146,8 @@ function antiShareLine(gkey){
   return {white,special};
 }
 
+function ageOn(y,mo,d){const now=new Date();let a=now.getFullYear()-y;if(now<new Date(now.getFullYear(),mo-1,d))a--;return a;}
+function myLineFor(gkey){ if(gkey==='powerball') return {white:[3,9,22,65,67],special:4}; return {white:[3,9,22,ageOn(1990,8,21),ageOn(1981,9,29)].sort((a,b)=>a-b),special:4}; }
 function card(g,gkey){
   const nd=nextDraw(g.drawDays,g.h,g.m,g.dataThrough), t=net(g.cashLumpSum);
   const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
@@ -164,6 +166,8 @@ function card(g,gkey){
     <div class="jrow"><span class="k">Odds</span><span class="v">1 in ${g.odds.toLocaleString()}</span></div>
     <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
+    <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}
+      <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div></div>
     ${g.ticketFusion?`<div class="ticket"><h4>★★ #1 line — fusion pick</h4>${balls(g.ticketFusion,g.cls)}
       <div class="tag">Stacked consensus (frequency + recent form + last-draw transition, fixed 0.4/0.4/0.2 blend), never-drawn, low split-risk. Same draw odds as any line — built to be worth the most if it hits. Auto-recomputes every draw; the 🤖 learner scores it forever.</div></div>`:''}
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
