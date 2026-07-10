@@ -161,7 +161,7 @@ function card(g,gkey){
       <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div>${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
     <div class="count"><div class="lbl">next drawing</div><div class="clock" data-clk>${left(nd-new Date())}</div>
       <div class="tag">${nd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div></div>
-    <div class="jrow"><span class="k">Jackpot</span><span class="v">${moneyM(g.advertisedAnnuity)}</span></div>
+    <div class="jrow"><span class="k">Jackpot (est.)</span><span class="v">≈${moneyM(g.advertisedAnnuity)}</span></div>
     <div class="jrow"><span class="k">Cash lump sum</span><span class="v">${moneyM(g.cashLumpSum)}</span></div>
     <div class="jrow"><span class="k">Odds</span><span class="v">1 in ${g.odds.toLocaleString()}</span></div>
     <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
@@ -208,7 +208,7 @@ function renderAnomaly(){
     const b=g.specialBias; if(!b) continue;
     h+='<br><br><b>'+name+' '+sp+':</b> hottest #<b>'+b.hot+'</b> at '+(b.rate*100).toFixed(1)+'% ('+b.count+'/'+b.draws+', exp '+b.expected+'), z='+b.z+'. '+
        (b.significant
-         ? '⭐ Single-ball max test significant after correction (exact p≈'+b.pCorrected+', ~1 in '+Math.round(1/b.pCorrected)+'). Honest caveats: the whole-star distribution is only borderline'+(b.chiP!=null?' (χ² p≈'+b.chiP+')':'')+', it flips if ~5 hits are removed, and it tilts only the '+sp+' — NOT the 5 whites, so it does not change jackpot odds.'+(b.recentRate!=null?' Recent '+b.recentN+'-draw rate '+(b.recentRate*100).toFixed(1)+'%.':'')+' The app plays #'+b.hot+' — a real but marginal lead on live trial, not a jackpot key.'
+         ? '⭐ Single-ball max test significant after correction (exact p≈'+b.pCorrected+', ~1 in '+Math.round(1/b.pCorrected)+'). Honest caveats: the whole-star distribution is only borderline'+(b.chiP!=null?' (χ² p≈'+b.chiP+', right on the 0.05 line)':'')+', it flips if ~5 hits are removed, and it tilts only the '+sp+' — NOT the 5 whites, so it does not change jackpot odds.'+(b.recentRate!=null?' Recent '+b.recentN+'-draw rate '+(b.recentRate*100).toFixed(1)+'%.':'')+' The app plays #'+b.hot+' — a real but marginal lead on live trial, not a jackpot key.'
          : 'not significant (p≈'+b.pCorrected+') — hottest ball is a within-noise near-tie; fair generator.');
   }
   body.innerHTML=h; if(el) el.style.display='block';
@@ -284,7 +284,7 @@ async function syncData(){
 }
 render();
 document.getElementById('refreshBtn').addEventListener('click',()=>syncData());
-setInterval(()=>{document.querySelectorAll('.card').forEach(c=>{const d=c.dataset.d.split(',').map(Number);const nd=nextDraw(d,+c.dataset.h,+c.dataset.m,c.dataset.through);const e=c.querySelector('[data-clk]');if(e)e.textContent=left(nd-new Date());});},1000);
+setInterval(()=>{document.querySelectorAll('.card[data-d]').forEach(c=>{const d=c.dataset.d.split(',').map(Number);const nd=nextDraw(d,+c.dataset.h,+c.dataset.m,c.dataset.through);const e=c.querySelector('[data-clk]');if(e)e.textContent=left(nd-new Date());});},1000);
 setTimeout(()=>syncData(),400);
 
 /* ================= Thesis Lab ================= */
