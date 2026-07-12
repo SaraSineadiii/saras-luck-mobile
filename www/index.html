@@ -89,6 +89,7 @@
       <button class="labtab" data-t="wheel">Wheel</button>
       <button class="labtab" data-t="bt">Walk-forward</button>
       <button class="labtab" data-t="chrono">Chrono mimic</button>
+      <button class="labtab" data-t="intel">🧠 Intel</button>
       <button class="labtab" data-t="crack">Real crack</button>
     </div>
     <div class="labgame"><span>Data set:</span>
@@ -435,6 +436,57 @@ setTimeout(()=>syncData(),400);
     },30);
   }
 
+  function intelMean(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+  function intelSd(a){const m=intelMean(a);return Math.sqrt(intelMean(a.map(x=>(x-m)**2)))||1;}
+  function intelPairs(w){const r=[];for(let i=0;i<w.length;i++)for(let j=i+1;j<w.length;j++)r.push(w[i]+'-'+w[j]);return r;}
+  function buildIntel(k){
+    const H=hist(k),M=META[k],n=H.length; if(n<50)return null;
+    const wf=new Array(M.pool+1).fill(0),pf=new Array(M.spool+1).fill(0),pair={};
+    const sums=[],odds=[],lows=[],spreads=[]; const half=Math.floor(M.pool/2);
+    H.forEach(row=>{const w=row.slice(0,5).slice().sort((a,b)=>a-b);w.forEach(x=>wf[x]++);if(row[5]>=1)pf[row[5]]++;intelPairs(w).forEach(p=>pair[p]=(pair[p]||0)+1);sums.push(w[0]+w[1]+w[2]+w[3]+w[4]);odds.push(w.filter(x=>x%2).length);lows.push(w.filter(x=>x<=half).length);spreads.push(w[4]-w[0]);});
+    const P={sum:[intelMean(sums),intelSd(sums)],odd:[intelMean(odds),intelSd(odds)],low:[intelMean(lows),intelSd(lows)],spread:[intelMean(spreads),intelSd(spreads)]};
+    const wfN=wf.slice(1),wm=intelMean(wfN),ws=intelSd(wfN),pairVals=Object.values(pair);
+    const hotW=wf.map((v,i)=>[i,v]).slice(1).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const hotS=pf.map((v,i)=>[i,v]).slice(1).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    return {k,M,n,wf,pf,pair,P,wm,ws,pairVals,hotW,hotS,half};
+  }
+  function intelScore(I,w,s){
+    const so=w.slice().sort((a,b)=>a-b),sum=so[0]+so[1]+so[2]+so[3]+so[4];
+    const zd=(v,p)=>Math.abs((v-p[0])/p[1]);
+    const shape=(zd(sum,I.P.sum)+zd(so.filter(n=>n%2).length,I.P.odd)+zd(so.filter(n=>n<=I.half).length,I.P.low)+zd(so[4]-so[0],I.P.spread))/4;
+    const typ=100*Math.exp(-shape);
+    const hotZ=intelMean(so.map(n=>(I.wf[n]-I.wm)/I.ws));
+    const pairAvg=intelMean(intelPairs(so).map(p=>I.pair[p]||0));
+    const pairPct=100*I.pairVals.filter(v=>v<=pairAvg).length/I.pairVals.length;
+    const over=so.filter(n=>n>31).length;
+    const pim=0.4*typ+0.35*Math.min(100,Math.max(0,50+15*hotZ))+0.25*pairPct;
+    return {pim:+pim.toFixed(1),typ:+typ.toFixed(0),hotZ:+hotZ.toFixed(2),pairPct:+pairPct.toFixed(0),over,sum,odd:so.filter(n=>n%2).length};
+  }
+  function panelIntel(k){
+    const I=buildIntel(k); if(!I)return '<div class="verdict warn">No draw history loaded.</div>';
+    window.__intel=I;
+    const dflt=(DATA[k].ticketFusion?DATA[k].ticketFusion.white.join(' ')+' '+DATA[k].ticketFusion.special:'');
+    return '<p class="sub" style="margin:0 0 8px">Intelligence Model over all '+I.n+' draws: frequency, shapes, pairs, spacing. Enter any ticket for its <b>historical-similarity score</b>. <b>Honest:</b> a high score does NOT raise your odds &mdash; it is descriptive, not predictive (tested: a top-similarity ticket matches the next draw no better than a random one).</p>'+
+      '<div class="labnote" style="margin-top:0"><b>Game fingerprint:</b> typical sum '+I.P.sum[0].toFixed(0)+'&plusmn;'+I.P.sum[1].toFixed(0)+', '+I.P.odd[0].toFixed(1)+'/5 odd, '+I.P.low[0].toFixed(1)+'/5 low. Hottest: '+I.hotW.map(x=>x[0]).join(' ')+' &middot; special '+I.hotS.map(x=>x[0]).join(' ')+'.</div>'+
+      '<div class="labrow"><input class="labinput" id="intelin" value="'+dflt+'" placeholder="5 whites then special"></div>'+
+      '<div class="labrow"><button class="mimicbtn" id="intelgo">score this ticket</button></div>'+
+      '<div id="intelout"></div>';
+  }
+  function runIntel(){
+    const I=window.__intel; const raw=(document.getElementById('intelin').value||'').split(/[^0-9]+/).map(Number).filter(x=>x>0);
+    const out=document.getElementById('intelout'); const w=raw.slice(0,5),s=raw[5]||I.hotS[0][0];
+    if(w.length<5||new Set(w).size<5||w.some(n=>n>I.M.pool)){out.innerHTML='<div class="verdict warn">Enter 5 distinct whites (1&ndash;'+I.M.pool+') then the special.</div>';return;}
+    const r=intelScore(I,w,s);
+    const band=r.pim>=62?'high &mdash; very typical + hot':r.pim>=52?'solid &mdash; normal-looking':'low &mdash; unusual shape';
+    out.innerHTML='<table class="lab"><tbody>'+
+      '<tr><td><b>PIM similarity score</b></td><td class="n"><b>'+r.pim+'/100</b></td></tr>'+
+      '<tr><td>Typicality</td><td class="n">'+r.typ+'/100 ('+band+')</td></tr>'+
+      '<tr><td>Hotness (freq z)</td><td class="n">'+(r.hotZ>0?'+':'')+r.hotZ+'</td></tr>'+
+      '<tr><td>Pair support</td><td class="n">'+r.pairPct+'th %ile</td></tr>'+
+      '<tr><td>Shape</td><td class="n">sum '+r.sum+', '+r.odd+'/5 odd, '+r.over+' over 31</td></tr>'+
+      '</tbody></table>'+
+      '<div class="labnote">Looks '+(r.pim>=52?'like a normal winning ticket':'unusual vs history')+' &mdash; interesting, but it changes nothing about the odds. The one honest lever is not splitting: '+(r.over>=3?r.over+' of your numbers are above 31, so you dodge the birthday crowd.':'only '+r.over+' numbers above 31 &mdash; more would lower split risk.')+'</div>';
+  }
   function panelCrack(){
     return '<div class="labnote" style="background:var(--bg-input);line-height:1.55">'+
       '<b>Is either game crackable? The honest answer.</b><br><br>'+
@@ -452,6 +504,7 @@ setTimeout(()=>syncData(),400);
     else if(TAB==='wheel'){b.innerHTML=panelWheel(GAME);document.getElementById('wheelgo').onclick=buildWheel;}
     else if(TAB==='bt'){b.innerHTML=panelBT(GAME);document.getElementById('btgo').onclick=runBT;}
     else if(TAB==='chrono'){b.innerHTML=panelChrono(GAME);document.getElementById('chronogo').onclick=runChrono;}
+    else if(TAB==='intel'){b.innerHTML=panelIntel(GAME);document.getElementById('intelgo').onclick=runIntel;}
     else b.innerHTML=panelCrack();
   }
   document.querySelectorAll('.labtab').forEach(t=>t.onclick=function(){document.querySelectorAll('.labtab').forEach(x=>x.classList.remove('active'));t.classList.add('active');TAB=t.dataset.t;render();});
