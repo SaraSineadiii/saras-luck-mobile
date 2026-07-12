@@ -137,15 +137,6 @@ function net(cash){const f=fedTax(cash),o=cash*DATA.taxes.okTopRate;return{net:c
 function nextDraw(days,h,m,afterISO){const now=new Date();let floor=now.getTime();if(afterISO){const p=String(afterISO).split('-');if(p.length===3){const lt=new Date(+p[0],+p[1]-1,+p[2],h,m,30,0).getTime();if(lt>floor)floor=lt;}}const base=new Date(floor);let d=base;for(let i=0;i<21;i++){d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+i,h,m,0,0);if(days.includes(d.getDay())&&d.getTime()>floor)return d;}return d;}
 function left(ms){if(ms<0)ms=0;const s=Math.floor(ms/1000),dd=Math.floor(s/86400),hh=Math.floor(s%86400/3600),mm=Math.floor(s%3600/60),ss=s%60;return (dd?dd+'d ':'')+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');}
 function balls(t,cls){let h='<div class="balls">';t.white.forEach(n=>h+=`<span class="ball">${n}</span>`);h+=`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span></div>`;return h;}
-function antiShareLine(gkey){
-  const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
-  const pool=gkey==='powerball'?69:52, spool=gkey==='powerball'?26:10;
-  const wf=new Array(pool).fill(0), sf=new Array(spool).fill(0);
-  H.forEach(r=>{for(let i=0;i<5;i++)wf[r[i]-1]++;sf[r[5]-1]++;});
-  const white=wf.map((v,i)=>({n:i+1,c:v})).filter(x=>x.n>31).sort((a,b)=>b.c-a.c||a.n-b.n).slice(0,5).map(x=>x.n).sort((a,b)=>a-b);
-  const special=sf.reduce((a,b)=>a+b,0)?sf.map((v,i)=>({n:i+1,c:v})).sort((a,b)=>b.c-a.c||a.n-b.n)[0].n:1;
-  return {white,special};
-}
 
 function ageOn(y,mo,d){const now=new Date();let a=now.getFullYear()-y;if(now<new Date(now.getFullYear(),mo-1,d))a--;return a;}
 function myLineFor(gkey){ if(gkey==='powerball') return {white:[3,9,22,65,67],special:4}; return {white:[3,9,22,ageOn(1990,8,21),ageOn(1981,9,29)].sort((a,b)=>a-b),special:4}; }
@@ -481,7 +472,7 @@ setTimeout(()=>syncData(),400);
       '<tr><td>Typicality</td><td class="n">'+r.typ+'/100 ('+band+')</td></tr>'+
       '<tr><td>Hotness (freq z)</td><td class="n">'+(r.hotZ>0?'+':'')+r.hotZ+'</td></tr>'+
       '<tr><td>Pair support</td><td class="n">'+r.pairPct+'th %ile</td></tr>'+
-      '<tr><td>Shape</td><td class="n">sum '+r.sum+', '+r.odd+'/5 odd, '+r.over+' over 31</td></tr>'+
+      '<tr><td>Shape</td><td class="n">sum '+r.sum+', '+r.odd+'/5 odd</td></tr>'+
       '</tbody></table>'+
       '<div class="labnote">Looks '+(r.pim>=52?'like a normal winning ticket':'unusual vs past winners')+' &mdash; interesting as analysis, but it changes nothing about the odds (every combination is equally likely). For the single highest-similarity never-drawn ticket, see the ★★ best ticket on the game card.</div>';
   }
