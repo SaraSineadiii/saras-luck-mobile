@@ -169,13 +169,11 @@ function card(g,gkey){
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
     <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}
       <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div></div>
-    ${g.ticketFusion?`<div class="ticket"><h4>★★ #1 line — fusion pick</h4>${balls(g.ticketFusion,g.cls)}
-      <div class="tag">Stacked consensus (frequency + recent form + last-draw transition, fixed 0.4/0.4/0.2 blend), never-drawn, low split-risk. Same draw odds as any line — built to be worth the most if it hits. Auto-recomputes every draw; the 🤖 learner scores it forever.</div></div>`:''}
+    ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)">★★ THE BEST TICKET TO BET ON</h4>${balls(g.ticketFusion,g.cls)}
+      <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the smartest single pick the data supports. Auto-recomputes every draw.</div></div>`:''}
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
       <div class="tag">Hot + recent + persistent across the whole history.</div></div>
     <div class="ticket"><h4>Most-drawn line (${g.draws} draws, ${g.windowStart})</h4>${balls(g.ticketData,g.cls)}</div>
-    <div class="ticket"><h4>🛡 Least-shared line — less likely to split</h4>${balls(antiShareLine(gkey),g.cls)}
-      <div class="tag">Hottest numbers above 31 — most players pick birthdays (1–31), so a win here is less likely to be shared. The one method that raises your expected take (payout, not odds).</div></div>
     <div class="ticket"><h4>🎲 Behavior mimic — trained on ${g.name}'s distribution</h4><div class="balls" id="m-${g.sp}"></div>
       <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">new mimic draw</button>
       <div class="tag">Crypto-uniform whites (their proven true behavior) + a special drawn from the game's real distribution${gkey==='lottoAmerica'?' — favors the hot star the way the RNG actually does':' (≈ uniform for Powerball)'}. Mimics the fingerprint, not the future — same odds.</div></div>
@@ -194,7 +192,7 @@ function renderLearner(){
     const L=g.learner;
     h+='<br><br><b>'+name+':</b> ';
     if(!L){ h+='waiting for first sync…'; continue; }
-    if(!L.scored){ h+='first picks registered (for the draw after '+L.pendingFor+') — scoring begins when that result lands. Methods: edge · hot · least-shared · random-mimic.'; }
+    if(!L.scored){ h+='first picks registered (for the draw after '+L.pendingFor+') — scoring begins when that result lands. Methods: best · edge · hot · random.'; }
     else{
       h+=L.scored+' draw'+(L.scored>1?'s':'')+' scored, through '+L.lastScored+' (baseline '+(25/pool).toFixed(2)+' whites, '+(100/spool).toFixed(0)+'% special).<br>'+
         Object.entries(L.totals).map(([m,t])=>'<b>'+m+'</b> avg '+(t.whiteSum/t.draws).toFixed(2)+'/5 · special '+t.sp+'/'+t.draws+' · best '+t.best+'/5 · jackpots '+t.jackpots).join('<br>');
@@ -219,7 +217,7 @@ function render(){
   renderLearner(); renderAnomaly();
   newMimic('m-PB',69,26,'red','powerball'); newMimic('m-SB',52,10,'gold','lottoAmerica');
   document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
-  document.getElementById('foot').innerHTML = '<b>★★ #1 Fusion line</b> — the compound of every tested method: consensus of frequency + recent form + last-draw transition (fixed 0.4/0.4/0.2 blend), then the best never-drawn, low-split-risk set. No line can be more likely to be <i>drawn</i> (proven); this one is built to be worth the most if it <i>hits</i>.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🛡 Least-shared line</b> — the hottest numbers above 31; same odds, but since most players pick birthdays (1–31), a win here is less likely to be split. The one lever that raises your expected take.<br><br><b>🎲 Behavior mimic</b> — trained on the real distribution of each game: uniform whites (their proven true behavior) + a special drawn from the real frequencies (favors the Lotto America hot star). Mimics the fingerprint, not the future.<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 58 independent AI agents across every method confirmed no line is more likely to be drawn. The only real lever is not splitting. Play one you like and set a budget.';
+  document.getElementById('foot').innerHTML = '<b>★★ The best ticket</b> — the single highest historical-similarity ticket that has never been drawn: the 5-set whose shape, hotness and pair structure most match every past winner. No line can be more likely to be <i>drawn</i> (proven) — this is simply the most winner-like combination that has never come up, the smartest single pick the data supports.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🎲 Behavior mimic</b> — trained on the real distribution of each game: uniform whites (their proven true behavior) + a special drawn from the real frequencies (favors the Lotto America hot star). Mimics the fingerprint, not the future.<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 58 independent AI agents across every method confirmed no line is more likely to be drawn. Play one you like and set a budget.';
 }
 
 /* ---- self-updater: fetch Texas Powerball CSV, recompute freq + tickets ---- */
@@ -337,8 +335,8 @@ setTimeout(()=>syncData(),400);
       '<tr><td>Jackpot EV (cash, after tax)</td><td class="n">$'+jEVnet.toFixed(3)+'</td></tr>'+
       '<tr><td><b>Total EV / ticket</b></td><td class="n"><b>$'+totNet.toFixed(3)+'</b> vs $'+M.price+'</td></tr>'+
       '</tbody></table>'+
-      '<div class="verdict '+(totNet>=M.price?'pass':'warn')+'">'+(totNet>=M.price?'+EV now (rare) &mdash; splitting at big jackpots erases it.':'Negative EV. You keep ~'+(totNet/M.price*100).toFixed(0)+'&cent; per dollar.')+'</div>'+
-      '<div class="labnote">Gross break-even &asymp; '+moneyM(breakeven)+' cash; after tax the real threshold is ~'+moneyM(breakeven/0.585)+' cash (not the advertised annuity), where ticket sales spike and you&rsquo;d likely split it. The one historical +EV window was Cash WinFall&rsquo;s rolldown &mdash; neither game has one.</div>';
+      '<div class="verdict '+(totNet>=M.price?'pass':'warn')+'">'+(totNet>=M.price?'+EV now (rare) &mdash; still a long-odds gamble.':'Negative EV. You keep ~'+(totNet/M.price*100).toFixed(0)+'&cent; per dollar.')+'</div>'+
+      '<div class="labnote">Gross break-even &asymp; '+moneyM(breakeven)+' cash; after tax the real threshold is ~'+moneyM(breakeven/0.585)+' cash (not the advertised annuity), which these games essentially never reach. The one historical +EV window was Cash WinFall&rsquo;s rolldown &mdash; neither game has one.</div>';
   }
 
   function panelWheel(k){
@@ -485,14 +483,14 @@ setTimeout(()=>syncData(),400);
       '<tr><td>Pair support</td><td class="n">'+r.pairPct+'th %ile</td></tr>'+
       '<tr><td>Shape</td><td class="n">sum '+r.sum+', '+r.odd+'/5 odd, '+r.over+' over 31</td></tr>'+
       '</tbody></table>'+
-      '<div class="labnote">Looks '+(r.pim>=52?'like a normal winning ticket':'unusual vs history')+' &mdash; interesting, but it changes nothing about the odds. The one honest lever is not splitting: '+(r.over>=3?r.over+' of your numbers are above 31, so you dodge the birthday crowd.':'only '+r.over+' numbers above 31 &mdash; more would lower split risk.')+'</div>';
+      '<div class="labnote">Looks '+(r.pim>=52?'like a normal winning ticket':'unusual vs past winners')+' &mdash; interesting as analysis, but it changes nothing about the odds (every combination is equally likely). For the single highest-similarity never-drawn ticket, see the ★★ best ticket on the game card.</div>';
   }
   function panelCrack(){
     return '<div class="labnote" style="background:var(--bg-input);line-height:1.55">'+
       '<b>Is either game crackable? The honest answer.</b><br><br>'+
       '<b>From the numbers alone &mdash; no.</b> Both games are statistically indistinguishable from fair randomness. For independent draws, H(next | history) = H(next) &mdash; the past carries zero information. No model beats chance; the walk-forward proves it.<br><br>'+
       '<b>But this family <i>was</i> cracked once &mdash; from the inside.</b> Lotto America descends from MUSL&rsquo;s Hot Lotto. Eddie Tipton, MUSL&rsquo;s own security director, planted self-deleting code that made the RNG predictable on three dates a year, claiming jackpots until a $16.5M ticket unraveled it (convicted 2017). That is the one documented crack &mdash; an <b>insider/implementation attack</b>, not prediction from past draws.<br><br>'+
-      '<b>The only real levers:</b> more distinct lines, the better-odds game, covering designs for guaranteed low-tier structure, avoiding popular combos so you don&rsquo;t split, and buying only when EV is closest. None predict the draw.<br><br>'+
+      '<b>The only real levers:</b> more distinct lines, the better-odds game, covering designs for guaranteed low-tier structure, and buying only when EV is closest. None predict the draw.<br><br>'+
       '<b>Pre-registered proof:</b> a fixed prediction is committed to the public data repo (<code>predictions.json</code>, commit <code>2af6f2c</code>) with a tamper-proof timestamp, locked before the draw. Over many draws it scores at chance &mdash; and that prospective null <i>is</i> the proof.</div>';
   }
 
