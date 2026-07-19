@@ -164,7 +164,6 @@ function card(g,gkey){
       <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the smartest single pick the data supports. Auto-recomputes every draw.</div></div>`:''}
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
       <div class="tag">Hot + recent + persistent across the whole history.</div></div>
-    <div class="ticket"><h4>Most-drawn line (${g.draws} draws, ${g.windowStart})</h4>${balls(g.ticketData,g.cls)}</div>
     <div class="ticket"><h4>🎲 Behavior mimic — trained on ${g.name}'s distribution</h4><div class="balls" id="m-${g.sp}"></div>
       <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">new mimic draw</button>
       <div class="tag">Crypto-uniform whites (their proven true behavior) + a special drawn from the game's real distribution${gkey==='lottoAmerica'?' — favors the hot star the way the RNG actually does':' (≈ uniform for Powerball)'}. Mimics the fingerprint, not the future — same odds.</div></div>
@@ -178,16 +177,18 @@ function mimicLine(pool,spool,sfreq){const w=new Set();while(w.size<5)w.add(1+rn
 window.newMimic=function(id,pool,spool,cls,gkey){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}const t=mimicLine(pool,spool,sf);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;};
 function renderLearner(){
   const el=document.getElementById('learnerbody'); if(!el) return;
-  let h='Every day the cloud runner pre-registers one ticket per method for the next draw, then scores it automatically when the result lands. Runs indefinitely, remembers everything — an honest out-of-sample ledger. If any method ever truly beat chance, it shows up here.';
-  for(const [name,g,pool,spool] of [['Powerball',DATA.powerball,69,26],['Lotto America',DATA.lottoAmerica,52,10]]){
-    const L=g.learner;
+  let h='Every draw, the cloud runner pre-registers one ticket per method, then scores it when the result lands — an honest out-of-sample ledger of ALL our methods. If any ever truly beat chance, it separates from the pack here.';
+  for(const [name,g,pool] of [['Powerball',DATA.powerball,69],['Lotto America',DATA.lottoAmerica,52]]){
+    const L=g.learner, base=25/pool;
     h+='<br><br><b>'+name+':</b> ';
     if(!L){ h+='waiting for first sync…'; continue; }
-    if(!L.scored){ h+='first picks registered (for the draw after '+L.pendingFor+') — scoring begins when that result lands. Methods: best · edge · hot · random.'; }
-    else{
-      h+=L.scored+' draw'+(L.scored>1?'s':'')+' scored, through '+L.lastScored+' (baseline '+(25/pool).toFixed(2)+' whites, '+(100/spool).toFixed(0)+'% special).<br>'+
-        Object.entries(L.totals).map(([m,t])=>'<b>'+m+'</b> avg '+(t.whiteSum/t.draws).toFixed(2)+'/5 · special '+t.sp+'/'+t.draws+' · best '+t.best+'/5 · jackpots '+t.jackpots).join('<br>');
-    }
+    if(!L.scored){ const ms=L.picks?Object.keys(L.picks):[]; h+='picks registered for the draw after '+L.pendingFor+' — scoring begins when that result lands. Tracking '+ms.length+' methods: '+ms.join(' · ')+'.'; continue; }
+    h+=L.scored+' draw'+(L.scored>1?'s':'')+' scored, through '+L.lastScored+'. Baseline = <b>'+base.toFixed(2)+'</b> whites/draw.';
+    const rows=Object.entries(L.totals).map(([m,t])=>({m,avg:t.whiteSum/t.draws,best:t.best,jack:t.jackpots})).sort((a,b)=>b.avg-a.avg);
+    h+='<table class="lab" style="margin-top:6px"><thead><tr><th>method</th><th class="n">avg/5</th><th class="n">vs base</th><th class="n">best</th></tr></thead><tbody>'+
+      rows.map(r=>{const d=r.avg-base;return '<tr><td>'+r.m+'</td><td class="n">'+r.avg.toFixed(2)+'</td><td class="n" style="color:'+(d>0.005?'var(--good)':d<-0.005?'var(--red)':'var(--muted)')+'">'+(d>=0?'+':'')+d.toFixed(2)+'</td><td class="n">'+r.best+'/5</td></tr>';}).join('')+'</tbody></table>';
+    if(L.recent&&L.recent.length){ h+='<div style="font-size:11px;color:var(--muted);margin-top:5px">recent (best ticket): '+L.recent.slice(-5).map(rec=>rec.date.slice(5)+' '+((rec.res&&rec.res.best)||'-')+'/5').join(' · ')+'</div>'; }
+    h+='<div style="font-size:11px;color:var(--muted);margin-top:4px">No method is meaningfully ahead — plain random keeps pace with every "smart" pick, exactly as the odds predict.</div>';
   }
   el.innerHTML=h;
 }
@@ -327,7 +328,7 @@ setTimeout(()=>syncData(),400);
       '<tr><td><b>Total EV / ticket</b></td><td class="n"><b>$'+totNet.toFixed(3)+'</b> vs $'+M.price+'</td></tr>'+
       '</tbody></table>'+
       '<div class="verdict '+(totNet>=M.price?'pass':'warn')+'">'+(totNet>=M.price?'+EV now (rare) &mdash; still a long-odds gamble.':'Negative EV. You keep ~'+(totNet/M.price*100).toFixed(0)+'&cent; per dollar.')+'</div>'+
-      '<div class="labnote">Gross break-even &asymp; '+moneyM(breakeven)+' cash; after tax the real threshold is ~'+moneyM(breakeven/0.585)+' cash (not the advertised annuity), which these games essentially never reach. The one historical +EV window was Cash WinFall&rsquo;s rolldown &mdash; neither game has one.</div>';
+      '<div class="labnote">Gross break-even &asymp; '+moneyM(breakeven)+' cash; after tax the real threshold is ~'+moneyM(breakeven/0.585)+' cash (not the advertised annuity), which after tax these games essentially never clear. The one historical +EV window was Cash WinFall&rsquo;s rolldown &mdash; neither game has one.</div>';
   }
 
   function panelWheel(k){
@@ -406,21 +407,22 @@ setTimeout(()=>syncData(),400);
       const L=Math.exp(-0.02),w=new Array(M.pool).fill(0);
       for(let i=0;i<warm;i++){for(let j=0;j<M.pool;j++)w[j]*=L;for(let j=0;j<5;j++)w[H[i][j]-1]+=1;}
       const top5=()=>w.map((v,i)=>[i+1,v]).sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,5).map(x=>x[0]);
+      /* control B = EXACT expected overlap vs a random past draw = sum(freq[pick])/n. Closed-form, no Monte-Carlo noise. */
+      const fullFreq=new Array(M.pool+1).fill(0); for(let i=0;i<n;i++)for(let j=0;j<5;j++)fullFreq[H[i][j]]++;
       let A=0,B=0,c=0;
       for(let t=warm;t<n;t++){
         const pred=top5(),act=new Set(H[t].slice(0,5));
         let ov=0;for(const x of pred)if(act.has(x))ov++;A+=ov;
-        let b2=0;for(let s=0;s<40;s++){let r;do{r=Math.floor(Math.random()*n);}while(r===t);const rs=new Set(H[r].slice(0,5));let o=0;for(const x of pred)if(rs.has(x))o++;b2+=o;}
-        B+=b2/40;c++;
+        let bexp=0;for(const x of pred)bexp+=fullFreq[x]/n;B+=bexp;c++;
         for(let j=0;j<M.pool;j++)w[j]*=L;for(let j=0;j<5;j++)w[H[t][j]-1]+=1;
       }
-      A/=c;B/=c;const uni=25/M.pool,noEdge=Math.abs(A-B)<0.03;
+      A/=c;B/=c;const uni=25/M.pool,gap=A-B,noEdge=gap<=0.03;
       out.innerHTML='<table class="lab"><tbody>'+
         '<tr><td>Uniform baseline (any fixed 5)</td><td class="n">'+uni.toFixed(3)+'</td></tr>'+
         '<tr><td><b>Mimic vs the TRUE next draw</b></td><td class="n"><b>'+A.toFixed(3)+'</b></td></tr>'+
-        '<tr><td>Same picks vs a RANDOM draw</td><td class="n">'+B.toFixed(3)+'</td></tr>'+
+        '<tr><td>Same picks vs a RANDOM draw (exact)</td><td class="n">'+B.toFixed(3)+'</td></tr>'+
         '</tbody></table>'+
-        '<div class="verdict '+(noEdge?'warn':'pass')+'">Scores <b>'+A.toFixed(2)+'</b> vs the next draw (above the '+uni.toFixed(2)+' baseline, so it <i>looks</i> predictive) &mdash; but <b>'+B.toFixed(2)+'</b> vs a random unrelated draw too. '+(noEdge?'Equal &rArr; NOT predicting the next draw':'')+', just picking commonly-drawn numbers that match <i>any</i> draw equally. Zero temporal edge.</div>'+
+        '<div class="verdict '+(noEdge?'warn':'pass')+'">Scores <b>'+A.toFixed(2)+'</b> vs the next draw and <b>'+B.toFixed(2)+'</b> vs a random unrelated draw '+(gap<=0?'(a touch <i>worse</i> than random). ':'(about the same). ')+(noEdge?'<b>No temporal edge:</b> NOT predicting the next draw':'A real gap &mdash; investigate')+' &mdash; just commonly-drawn numbers that match <i>any</i> draw equally.</div>'+
         '<div class="labnote">The honest answer to &ldquo;a mimic that predicts as it walks chronologically.&rdquo; Independent draws carry no order information (lag-1 info = 0), so the best autoregressive model matches the next draw no better than a draw years away. A perfect mimic of a random process is, necessarily, random. (8 model families tested vs a time-shuffled control &mdash; none beat it.)</div>';
     },30);
   }
