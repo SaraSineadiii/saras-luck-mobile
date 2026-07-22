@@ -122,7 +122,7 @@ const SEED = {
     drawDays:[1,3,6], h:21, m:59, advertisedAnnuity:397000000, cashLumpSum:194700000, draws:1377, windowStart:"since 2015 matrix",
     ticketData:{white:[21,27,28,61,64],special:14}, ticketEdge:{white:[21,28,52,61,64],special:14}, sp:"PB", cls:"red", live:false, dataThrough:"2026-07-06" },
   lottoAmerica:{ name:"Lotto America", matrix:"5 of 52 + 1 of 10", odds:25989600, method:"certified RNG (Johnston IA) since 2023",
-    drawDays:[1,3,6], h:21, m:15, advertisedAnnuity:31000000, cashLumpSum:14580000, draws:505, windowStart:"RNG era only",
+    drawDays:[1,3,6], h:21, m:15, advertisedAnnuity:2050000, cashLumpSum:1025000, draws:505, windowStart:"RNG era only",
     ticketData:{white:[8,9,15,42,51],special:4}, ticketEdge:{white:[5,8,42,47,51],special:4}, sp:"SB", cls:"gold", live:false, dataThrough:"2026-07-06" },
   updated:"bundled 2026-07-01"
 };
@@ -162,11 +162,33 @@ const prizeFor=(gkey,wm,sp)=> PRIZE_TAB[gkey][wm+','+(sp?1:0)] || 0;
 function lineRecord(line,gkey){
   const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
   const price=gkey==='powerball'?2:1, whites=new Set(line.white);
-  let won=0,best=0,jackpots=0,hits=0;
-  for(const row of H){ let wm=0; for(let i=0;i<5;i++) if(whites.has(row[i])) wm++; const sp=(line.special===row[5]);
+  let won=0,best=0,jackpots=0,hits=0; const wins=[];
+  for(let i=0;i<H.length;i++){ const row=H[i]; let wm=0; for(let k=0;k<5;k++) if(whites.has(row[k])) wm++; const sp=(line.special===row[5]);
     if(wm>best)best=wm; if(wm===5&&sp)jackpots++;
-    const pr=prizeFor(gkey,wm,sp); if(pr){ hits++; if(pr!=='jackpot')won+=pr; } }
-  const spent=H.length*price; return {draws:H.length,won,spent,best,jackpots,hits};
+    const pr=prizeFor(gkey,wm,sp); if(pr){ hits++; if(pr!=='jackpot')won+=pr; wins.push({i,wm,sp,prize:pr}); } }
+  const spent=H.length*price; return {draws:H.length,won,spent,best,jackpots,hits,wins};
+}
+function tierLabel(gkey,wm,sp){ const s=gkey==='powerball'?'PB':'SB'; return wm===0?s:(wm+(sp?' + '+s:'')); }
+function linesLeaderboard(gkey){
+  const g=DATA[gkey]; if(!g) return '';
+  const dates=(g.historyDates)||(window.LOTTO_HISTORY_DATES&&window.LOTTO_HISTORY_DATES[gkey])||[];
+  const listed=[['My Line',myLineFor(gkey)]];
+  if(g.ticketFusion) listed.push(['Best ticket',g.ticketFusion]);
+  if(g.ticketEdge) listed.push(['Edge pick',g.ticketEdge]);
+  const rows=[], allWins=[];
+  for(const [name,line] of listed){ const r=lineRecord(line,gkey); rows.push({name,r}); r.wins.forEach(w=>allWins.push({date:dates[w.i]||'',name,line,...w})); }
+  if(!rows.length||!rows[0].r.draws) return '';
+  allWins.sort((a,b)=> a.date<b.date?1:(a.date>b.date?-1:0));
+  const ranked=rows.slice().sort((a,b)=>(b.r.won-b.r.spent)-(a.r.won-a.r.spent)||b.r.hits-a.r.hits);
+  let h='<table class="lab" style="margin-top:6px"><thead><tr><th>line</th><th class="n">hits</th><th class="n">$ won</th><th class="n">net $</th><th class="n">best</th></tr></thead><tbody>'+
+    rows.map(r=>{const net=r.r.won-r.r.spent;return '<tr><td>'+r.name+'</td><td class="n">'+r.r.hits+'</td><td class="n">$'+r.r.won.toLocaleString()+'</td><td class="n" style="color:'+(net>0?'var(--good)':'var(--red)')+'">'+(net>=0?'+$':'−$')+Math.abs(net).toLocaleString()+'</td><td class="n">'+r.r.best+'/5</td></tr>';}).join('')+'</tbody></table>';
+  if(allWins.length){ h+='<div style="font-size:11px;margin-top:5px"><b>🏆 Wins log</b> — '+allWins.length+' winning draws, newest first:</div><div style="font-size:11px;max-height:150px;overflow:auto;margin-top:2px">'+
+    allWins.slice(0,20).map(w=>'<div style="padding:2px 0;border-bottom:1px solid var(--line)">'+(w.date||'—')+' · <b>'+w.name+'</b> · '+tierLabel(gkey,w.wm,w.sp)+' · <b>'+(w.prize==='jackpot'?'JACKPOT 🎉':'$'+w.prize.toLocaleString())+'</b> <span style="color:var(--muted)">['+w.line.white.join(' ')+' + '+w.line.special+']</span></div>').join('')+
+    (allWins.length>20?'<div style="color:var(--muted);padding-top:2px">…and '+(allWins.length-20)+' more</div>':'')+'</div>'; }
+  else h+='<div style="font-size:11px;color:var(--muted);margin-top:5px">No prize-winning draws yet for these lines.</div>';
+  const top=ranked[0];
+  h+='<div style="font-size:11px;color:var(--muted);margin-top:5px"><b>Best line so far:</b> '+top.name+'. It does NOT tell you what to play: all are fixed sets at the same 1 in '+g.odds.toLocaleString()+' odds — the gaps are luck, past hits don’t predict. Real levers: more DIFFERENT lines + the better-odds game. Best ticket = most winner-<i>like</i>, not more likely.</div>';
+  return h;
 }
 function lineRecordLine(line,gkey,gname){
   const r=lineRecord(line,gkey); if(!r.draws) return '';
@@ -210,11 +232,13 @@ function mimicLine(pool,spool,sfreq){const w=new Set();while(w.size<5)w.add(1+rn
 window.newMimic=function(id,pool,spool,cls,gkey){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}const t=mimicLine(pool,spool,sf);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;};
 function renderLearner(){
   const el=document.getElementById('learnerbody'); if(!el) return;
-  let h='Every draw, the cloud runner pre-registers one ticket per method, then scores it when the result lands — an honest out-of-sample ledger of ALL our methods, tracking white matches, special-ball hits, prize tier and real-dollar return. If any ever truly beat chance, it separates from the pack here.';
-  for(const [name,g,pool,spool,dprice] of [['Powerball',DATA.powerball,69,26,2],['Lotto America',DATA.lottoAmerica,52,10,1]]){
+  let h='Two things per game: (1) a lifetime record of every LINE the app lists — My Line, Best ticket, Edge pick — scored against all past draws with a dated wins log; and (2) the prospective method ledger the cloud runner scores after each new draw. If any line or method ever truly beat chance, it separates from the pack here.';
+  for(const [name,g,gkey,pool,spool,dprice] of [['Powerball',DATA.powerball,'powerball',69,26,2],['Lotto America',DATA.lottoAmerica,'lottoAmerica',52,10,1]]){
     const L=g.learner, base=25/pool, sbase=1/spool;
-    h+='<br><br><b>'+name+':</b> ';
-    if(!L){ h+='waiting for first sync…'; continue; }
+    h+='<br><br><b style="font-size:14px">'+name+'</b>';
+    h+='<div style="margin-top:4px;font-weight:600;color:var(--deep)">📋 Your lines — all-time record &amp; wins log</div>'+linesLeaderboard(gkey);
+    h+='<div style="margin-top:10px;font-weight:600;color:var(--deep)">🤖 Method picks — prospective scoreboard</div>';
+    if(!L){ h+=' waiting for first sync…'; continue; }
     if(!L.scored){ const ms=L.picks?Object.keys(L.picks):[]; h+='picks registered for the draw after '+L.pendingFor+' — scoring begins when that result lands. Tracking '+ms.length+' methods: '+ms.join(' · ')+'.'; continue; }
     const price=L.price||dprice;
     h+=L.scored+' draw'+(L.scored>1?'s':'')+' scored, through '+L.lastScored+'. Baselines: <b>'+base.toFixed(2)+'</b> whites, <b>'+(sbase*100).toFixed(0)+'%</b> special. $'+price+'/line.';
@@ -302,7 +326,7 @@ async function syncData(){
     const r=await fetch('https://raw.githubusercontent.com/SaraSineadiii/saras-luck-data/main/data.json',{cache:'no-store'});
     if(!r.ok) throw new Error('bad');
     const j=await r.json();
-    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.ticketFusion)DATA[k].ticketFusion=g.ticketFusion; if(g.specialBias)DATA[k].specialBias=g.specialBias; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.jackpotOutcome)DATA[k].jackpotOutcome=g.jackpotOutcome; if(g.learner)DATA[k].learner=g.learner; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
+    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.ticketFusion)DATA[k].ticketFusion=g.ticketFusion; if(g.specialBias)DATA[k].specialBias=g.specialBias; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.historyDates&&g.historyDates.length)DATA[k].historyDates=g.historyDates; if(g.jackpotOutcome)DATA[k].jackpotOutcome=g.jackpotOutcome; if(g.learner)DATA[k].learner=g.learner; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
     DATA.updated=(j.updated||'').slice(0,10);
     try{localStorage.setItem('saraLuck',JSON.stringify(DATA));}catch(e){}
     render();
