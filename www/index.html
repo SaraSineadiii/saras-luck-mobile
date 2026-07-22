@@ -140,6 +140,22 @@ function balls(t,cls){let h='<div class="balls">';t.white.forEach(n=>h+=`<span c
 
 function ageOn(y,mo,d){const now=new Date();let a=now.getFullYear()-y;if(now<new Date(now.getFullYear(),mo-1,d))a--;return a;}
 function myLineFor(gkey){ if(gkey==='powerball') return {white:[3,9,22,65,67],special:4}; return {white:[3,9,22,ageOn(1990,8,21),ageOn(1981,9,29)].sort((a,b)=>a-b),special:4}; }
+const PAYOUTS={
+  powerball:{sp:'PB',price:2,jodds:292201338,mult:{name:'Power Play',cost:1,vals:'2×/3×/4×/5×/10×',max:10},
+    fixed:[['5',1000000,11688054],['4 + PB',50000,913129],['4',100,36525],['3 + PB',100,14494],['3',7,580],['2 + PB',7,701],['1 + PB',4,92],['PB only',4,38]]},
+  lottoAmerica:{sp:'SB',price:1,jodds:25989600,mult:{name:'All Star Bonus',cost:1,vals:'2×/3×/4×/5×',max:5},
+    fixed:[['5',20000,2887733],['4 + SB',1000,110594],['4',100,12288],['3 + SB',20,2404],['3',5,267],['2 + SB',5,160],['1 + SB',2,29],['SB only',2,17]]}
+};
+function payoutTable(gkey,g){
+  const P=PAYOUTS[gkey]; if(!P) return '';
+  const t=net(g.cashLumpSum);
+  let rows='<tr><td>5 + '+P.sp+'</td><td class="n">Jackpot</td><td class="n">'+moneyM(g.cashLumpSum)+' → <b>'+money(t.net)+'</b> net</td><td class="n">1 in '+P.jodds.toLocaleString()+'</td></tr>';
+  P.fixed.forEach((r,i)=>{const label=r[0],base=r[1],odds=r[2];const mx=(gkey==='powerball'&&i===0)?'$2,000,000':'up to $'+(base*P.mult.max).toLocaleString();rows+='<tr><td>'+label+'</td><td class="n">$'+base.toLocaleString()+'</td><td class="n">'+mx+'</td><td class="n">1 in '+odds.toLocaleString()+'</td></tr>';});
+  return '<details class="ticket" style="margin-top:0;padding:11px 12px"><summary style="cursor:pointer;font-weight:600;color:var(--deep)">💰 All prize tiers &amp; payouts</summary>'+
+    '<table class="lab" style="margin-top:8px"><thead><tr><th>match</th><th class="n">base</th><th class="n">w/ '+P.mult.name+'</th><th class="n">odds</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="tag" style="margin-top:6px">Base line $'+P.price+'. <b>'+P.mult.name+'</b> (+$'+P.mult.cost+'/play) multiplies every non-jackpot prize by the '+P.mult.vals+' drawn each game — the jackpot is never multiplied'+(gkey==='powerball'?', and Match-5 is a flat $2,000,000 with any Power Play (10× only when the jackpot is ≤ $150M)':'')+'. Verified against the official '+(gkey==='powerball'?'powerball.com':'lottoamerica.com')+' chart. Top row = cash option after all taxes.</div>'+
+    '</details>';
+}
 function card(g,gkey){
   const nd=nextDraw(g.drawDays,g.h,g.m,g.dataThrough), t=net(g.cashLumpSum);
   const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
@@ -167,6 +183,7 @@ function card(g,gkey){
     <div class="ticket"><h4>🎲 Behavior mimic — trained on ${g.name}'s distribution</h4><div class="balls" id="m-${g.sp}"></div>
       <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">new mimic draw</button>
       <div class="tag">Crypto-uniform whites (their proven true behavior) + a special drawn from the game's real distribution${gkey==='lottoAmerica'?' — favors the hot star the way the RNG actually does':' (≈ uniform for Powerball)'}. Mimics the fingerprint, not the future — same odds.</div></div>
+    ${payoutTable(gkey,g)}
   </div>`;
 }
 function rndInt(n){/* crypto-grade, modulo-bias-free */const g=window.crypto||window.msCrypto;if(g&&g.getRandomValues){const max=Math.floor(0x100000000/n)*n,a=new Uint32Array(1);let x;do{g.getRandomValues(a);x=a[0];}while(x>=max);return x%n;}return Math.floor(Math.random()*n);}
@@ -177,18 +194,20 @@ function mimicLine(pool,spool,sfreq){const w=new Set();while(w.size<5)w.add(1+rn
 window.newMimic=function(id,pool,spool,cls,gkey){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}const t=mimicLine(pool,spool,sf);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;};
 function renderLearner(){
   const el=document.getElementById('learnerbody'); if(!el) return;
-  let h='Every draw, the cloud runner pre-registers one ticket per method, then scores it when the result lands — an honest out-of-sample ledger of ALL our methods. If any ever truly beat chance, it separates from the pack here.';
-  for(const [name,g,pool] of [['Powerball',DATA.powerball,69],['Lotto America',DATA.lottoAmerica,52]]){
-    const L=g.learner, base=25/pool;
+  let h='Every draw, the cloud runner pre-registers one ticket per method, then scores it when the result lands — an honest out-of-sample ledger of ALL our methods, tracking white matches, special-ball hits, prize tier and real-dollar return. If any ever truly beat chance, it separates from the pack here.';
+  for(const [name,g,pool,spool,dprice] of [['Powerball',DATA.powerball,69,26,2],['Lotto America',DATA.lottoAmerica,52,10,1]]){
+    const L=g.learner, base=25/pool, sbase=1/spool;
     h+='<br><br><b>'+name+':</b> ';
     if(!L){ h+='waiting for first sync…'; continue; }
     if(!L.scored){ const ms=L.picks?Object.keys(L.picks):[]; h+='picks registered for the draw after '+L.pendingFor+' — scoring begins when that result lands. Tracking '+ms.length+' methods: '+ms.join(' · ')+'.'; continue; }
-    h+=L.scored+' draw'+(L.scored>1?'s':'')+' scored, through '+L.lastScored+'. Baseline = <b>'+base.toFixed(2)+'</b> whites/draw.';
-    const rows=Object.entries(L.totals).map(([m,t])=>({m,avg:t.whiteSum/t.draws,best:t.best,jack:t.jackpots})).sort((a,b)=>b.avg-a.avg);
-    h+='<table class="lab" style="margin-top:6px"><thead><tr><th>method</th><th class="n">avg/5</th><th class="n">vs base</th><th class="n">best</th></tr></thead><tbody>'+
-      rows.map(r=>{const d=r.avg-base;return '<tr><td>'+r.m+'</td><td class="n">'+r.avg.toFixed(2)+'</td><td class="n" style="color:'+(d>0.005?'var(--good)':d<-0.005?'var(--red)':'var(--muted)')+'">'+(d>=0?'+':'')+d.toFixed(2)+'</td><td class="n">'+r.best+'/5</td></tr>';}).join('')+'</tbody></table>';
-    if(L.recent&&L.recent.length){ h+='<div style="font-size:11px;color:var(--muted);margin-top:5px">recent (best ticket): '+L.recent.slice(-5).map(rec=>rec.date.slice(5)+' '+((rec.res&&rec.res.best)||'-')+'/5').join(' · ')+'</div>'; }
-    h+='<div style="font-size:11px;color:var(--muted);margin-top:4px">No method is meaningfully ahead — plain random keeps pace with every "smart" pick, exactly as the odds predict.</div>';
+    const price=L.price||dprice;
+    h+=L.scored+' draw'+(L.scored>1?'s':'')+' scored, through '+L.lastScored+'. Baselines: <b>'+base.toFixed(2)+'</b> whites, <b>'+(sbase*100).toFixed(0)+'%</b> special. $'+price+'/line.';
+    const rows=Object.entries(L.totals).map(([m,t])=>{const wd=t.wonDraws||t.draws,won=t.won||0;return {m,avg:t.whiteSum/t.draws,sp:(t.sp||0)/t.draws,best:t.best,won,spent:wd*price,net:won-wd*price};}).sort((a,b)=>b.avg-a.avg);
+    h+='<table class="lab" style="margin-top:6px"><thead><tr><th>method</th><th class="n">avg/5</th><th class="n">Δbase</th><th class="n">★hit</th><th class="n">net $</th></tr></thead><tbody>'+
+      rows.map(r=>{const d=r.avg-base,spd=r.sp-sbase;return '<tr><td>'+r.m+'</td><td class="n">'+r.avg.toFixed(2)+'</td><td class="n" style="color:'+(d>0.005?'var(--good)':d<-0.005?'var(--red)':'var(--muted)')+'">'+(d>=0?'+':'')+d.toFixed(2)+'</td><td class="n" style="color:'+(spd>0.01?'var(--good)':spd<-0.01?'var(--red)':'var(--muted)')+'">'+(r.sp*100).toFixed(0)+'%</td><td class="n" style="color:'+(r.net>0?'var(--good)':r.net<0?'var(--red)':'var(--muted)')+'">'+(r.net>=0?'+$':'−$')+Math.abs(r.net).toLocaleString()+'</td></tr>';}).join('')+'</tbody></table>';
+    if(L.recent&&L.recent.length){ h+='<div style="font-size:11px;color:var(--muted);margin-top:5px">recent (best ticket): '+L.recent.slice(-5).map(rec=>{const w=rec.won&&rec.won.best;return rec.date.slice(5)+' '+((rec.res&&rec.res.best)||'-')+(w&&w!=='jackpot'&&w>0?' ($'+w+')':w==='jackpot'?' (JACKPOT!)':'');}).join(' · ')+'</div>'; }
+    const tw=rows.reduce((a,r)=>a+r.won,0), ts=rows.reduce((a,r)=>a+r.spent,0);
+    h+='<div style="font-size:11px;color:var(--muted);margin-top:4px">All methods so far: <b>$'+tw.toLocaleString()+'</b> won on <b>$'+ts.toLocaleString()+'</b> ('+(ts?((tw/ts-1)*100).toFixed(0):'0')+'% ROI). No method is meaningfully ahead — plain random keeps pace with every "smart" pick and every method stays under water, exactly as the odds predict.</div>';
   }
   el.innerHTML=h;
 }
