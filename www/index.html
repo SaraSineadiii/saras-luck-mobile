@@ -156,6 +156,22 @@ function payoutTable(gkey,g){
     '<div class="tag" style="margin-top:6px">Base line $'+P.price+'. <b>'+P.mult.name+'</b> (+$'+P.mult.cost+'/play) multiplies every non-jackpot prize by the '+P.mult.vals+' drawn each game — the jackpot is never multiplied'+(gkey==='powerball'?', and Match-5 is a flat $2,000,000 with any Power Play (10× only when the jackpot is ≤ $150M)':'')+'. Verified against the official '+(gkey==='powerball'?'powerball.com':'lottoamerica.com')+' chart. Top row = cash option after all taxes.</div>'+
     '</details>';
 }
+const PRIZE_TAB={ powerball:{'5,1':'jackpot','5,0':1000000,'4,1':50000,'4,0':100,'3,1':100,'3,0':7,'2,1':7,'1,1':4,'0,1':4},
+                  lottoAmerica:{'5,1':'jackpot','5,0':20000,'4,1':1000,'4,0':100,'3,1':20,'3,0':5,'2,1':5,'1,1':2,'0,1':2} };
+const prizeFor=(gkey,wm,sp)=> PRIZE_TAB[gkey][wm+','+(sp?1:0)] || 0;
+function lineRecord(line,gkey){
+  const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
+  const price=gkey==='powerball'?2:1, whites=new Set(line.white);
+  let won=0,best=0,jackpots=0,hits=0;
+  for(const row of H){ let wm=0; for(let i=0;i<5;i++) if(whites.has(row[i])) wm++; const sp=(line.special===row[5]);
+    if(wm>best)best=wm; if(wm===5&&sp)jackpots++;
+    const pr=prizeFor(gkey,wm,sp); if(pr){ hits++; if(pr!=='jackpot')won+=pr; } }
+  const spent=H.length*price; return {draws:H.length,won,spent,best,jackpots,hits};
+}
+function lineRecordLine(line,gkey,gname){
+  const r=lineRecord(line,gkey); if(!r.draws) return '';
+  return '<div class="tag" style="margin-top:6px;color:var(--deep)">📊 <b>All-time record</b> vs every real '+gname+' draw ('+r.draws.toLocaleString()+' draws): won <b>$'+r.won.toLocaleString()+'</b> on $'+r.spent.toLocaleString()+' ('+(r.spent?((r.won/r.spent-1)*100).toFixed(0):0)+'% ROI), hit a prize <b>'+r.hits+'</b>×, best <b>'+r.best+'/5</b>'+(r.jackpots?' + special 🎉':'')+'. A fixed line — a fair lifetime tally, same odds going forward.</div>';
+}
 function card(g,gkey){
   const nd=nextDraw(g.drawDays,g.h,g.m,g.dataThrough), t=net(g.cashLumpSum);
   const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
@@ -175,7 +191,7 @@ function card(g,gkey){
     <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
     <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}
-      <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div></div>
+      <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div>${lineRecordLine(myLineFor(gkey),gkey,g.name)}</div>
     ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)">★★ THE BEST TICKET TO BET ON</h4>${balls(g.ticketFusion,g.cls)}
       <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the smartest single pick the data supports. Auto-recomputes every draw.</div></div>`:''}
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
