@@ -16,7 +16,7 @@ BUILD THE APK  (you already have Node + Android Studio from LunaLog)
   2. npm install
   3. npx cap add android
   4. npx @capacitor/assets generate --android        (turns resources/icon.png
-        into the pink-dice launcher icon; skip if you don't have the tool)
+        into the green Cosmicore launcher icon; skip if you don't have the tool)
   5. npx cap sync
   6. Either:
        npx cap open android      → in Android Studio: Build ▸ Build APK(s)
@@ -26,7 +26,7 @@ BUILD THE APK  (you already have Node + Android Studio from LunaLog)
      The APK lands at:
        android/app/build/outputs/apk/debug/app-debug.apk
   7. Copy that .apk to your phone (email/USB/Drive), tap it, allow
-     "install from unknown apps," and install. Pink dice, home screen, done.
+     "install from unknown apps," and install. Green Cosmicore icon, home screen, done.
 
 HOW IT STAYS CURRENT BY ITSELF
   On every launch (and via "Refresh now") the app fetches the Texas Lottery's
