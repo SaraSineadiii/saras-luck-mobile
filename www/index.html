@@ -74,7 +74,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo"><svg viewBox="0 0 200 200"><defs><clipPath id="slbot"><rect x="0" y="95" width="200" height="105"/></clipPath></defs><ellipse cx="100" cy="95" rx="86" ry="29" fill="none" stroke="#9fe6cc" stroke-width="6" transform="rotate(-20 100 95)"/><path d="M100 150 C68 122,48 100,48 78 C48 60,63 50,80 50 C93 50,100 60,100 60 C100 60,107 50,120 50 C137 50,152 60,152 78 C152 100,132 122,100 150Z" fill="#3AAD80"/><ellipse cx="100" cy="95" rx="86" ry="29" fill="none" stroke="#9fe6cc" stroke-width="6" transform="rotate(-20 100 95)" clip-path="url(#slbot)"/></svg></div>
+    <div class="logo"><svg viewBox="0 0 200 200"><defs><clipPath id="slbotm"><rect x="0" y="95" width="200" height="105"/></clipPath></defs><ellipse cx="100" cy="95" rx="86" ry="29" fill="none" stroke="#9fe6cc" stroke-width="6" transform="rotate(-20 100 95)"/><path d="M100 150 C68 122,48 100,48 78 C48 60,63 50,80 50 C93 50,100 60,100 60 C100 60,107 50,120 50 C137 50,152 60,152 78 C152 100,132 122,100 150Z" fill="#3AAD80"/><ellipse cx="100" cy="95" rx="86" ry="29" fill="none" stroke="#9fe6cc" stroke-width="6" transform="rotate(-20 100 95)" clip-path="url(#slbotm)"/></svg></div>
     <div><h1>Sara's Luck</h1><p class="sub">Powerball &amp; Lotto America</p></div>
   </header>
   <div class="status" id="status">loading…</div>
@@ -178,7 +178,7 @@ function linesLeaderboard(gkey){
   const rows=[], allWins=[];
   for(const [name,line] of listed){ const r=lineRecord(line,gkey); rows.push({name,r}); r.wins.forEach(w=>allWins.push({date:dates[w.i]||'',name,line,...w})); }
   if(!rows.length||!rows[0].r.draws) return '';
-  allWins.sort((a,b)=> a.date<b.date?1:(a.date>b.date?-1:0));
+  allWins.sort((a,b)=>{const ka=a.date||('~'+String(a.i).padStart(7,'0')),kb=b.date||('~'+String(b.i).padStart(7,'0'));return ka<kb?1:(ka>kb?-1:0);});
   const ranked=rows.slice().sort((a,b)=>(b.r.won-b.r.spent)-(a.r.won-a.r.spent)||b.r.hits-a.r.hits);
   let h='<table class="lab" style="margin-top:6px"><thead><tr><th>line</th><th class="n">hits</th><th class="n">$ won</th><th class="n">net $</th><th class="n">best</th></tr></thead><tbody>'+
     rows.map(r=>{const net=r.r.won-r.r.spent;return '<tr><td>'+r.name+'</td><td class="n">'+r.r.hits+'</td><td class="n">$'+r.r.won.toLocaleString()+'</td><td class="n" style="color:'+(net>0?'var(--good)':'var(--red)')+'">'+(net>=0?'+$':'−$')+Math.abs(net).toLocaleString()+'</td><td class="n">'+r.r.best+'/5</td></tr>';}).join('')+'</tbody></table>';
@@ -194,6 +194,14 @@ function lineRecordLine(line,gkey,gname){
   const r=lineRecord(line,gkey); if(!r.draws) return '';
   return '<div class="tag" style="margin-top:6px;color:var(--deep)">📊 <b>All-time record</b> vs every real '+gname+' draw ('+r.draws.toLocaleString()+' draws): won <b>$'+r.won.toLocaleString()+'</b> on $'+r.spent.toLocaleString()+' ('+(r.spent?((r.won/r.spent-1)*100).toFixed(0):0)+'% ROI), hit a prize <b>'+r.hits+'</b>×, best <b>'+r.best+'/5</b>'+(r.jackpots?' + special 🎉':'')+'. A fixed line — a fair lifetime tally, same odds going forward.</div>';
 }
+function slipGrid(whites, gkey, cell){
+  const pool=gkey==='powerball'?69:52, W=10, rows=Math.ceil(pool/W); cell=cell||16;
+  const gw=W*cell, gh=rows*cell, set=new Set(whites);
+  let s='<svg viewBox="0 0 '+gw+' '+gh+'" width="'+gw+'" height="'+gh+'" style="max-width:100%">';
+  for(let num=1;num<=pool;num++){const c=(num-1)%W,r=Math.floor((num-1)/W),x=c*cell,y=r*cell,on=set.has(num);
+    s+='<circle cx="'+(x+cell/2)+'" cy="'+(y+cell/2)+'" r="'+(on?cell*0.42:cell*0.17)+'" fill="'+(on?'var(--deep)':'var(--line2)')+'"'+(on?' stroke="#fff" stroke-width="1"':'')+'/>';}
+  s+='</svg>';return s;
+}
 function card(g,gkey){
   const nd=nextDraw(g.drawDays,g.h,g.m,g.dataThrough), t=net(g.cashLumpSum);
   const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
@@ -204,7 +212,7 @@ function card(g,gkey){
     <div class="method">${g.method}</div>
     <div class="method" style="color:${g.live?'var(--good)':'var(--muted)'}">${g.live?'● live — auto-updates':'● data through '+g.dataThrough+' · refreshes from the live feed when online'}</div>
     ${ldr?`<div class="lastwin"><div class="lwlbl">🏆 Most recent winning numbers${g.dataThrough?` · <span class="lwdate">${g.dataThrough}</span>`:''}</div>
-      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div>${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
+      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div><div style="margin-top:8px">${slipGrid(ldr.slice(0,5),gkey)}<div class="tag" style="margin-top:2px">🎰 its shape on a canonical 1–${gkey==='powerball'?69:52} grid — each state's slip differs, so the shape is layout, not signal</div></div>${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
     <div class="count"><div class="lbl">next drawing</div><div class="clock" data-clk>${left(nd-new Date())}</div>
       <div class="tag">${nd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div></div>
     <div class="jrow"><span class="k">Jackpot (est.)</span><span class="v">≈${moneyM(g.advertisedAnnuity)}</span></div>
@@ -214,10 +222,10 @@ function card(g,gkey){
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
     <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}
       <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div>${lineRecordLine(myLineFor(gkey),gkey,g.name)}</div>
-    ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)">★★ THE BEST TICKET TO BET ON</h4>${balls(g.ticketFusion,g.cls)}
-      <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the smartest single pick the data supports. Auto-recomputes every draw.</div></div>`:''}
+    ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)">★★ THE BEST TICKET — most winner-like, same odds</h4>${balls(g.ticketFusion,g.cls)}
+      <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the most winner-<i>like</i> single line the data supports (a descriptive pick, <b>not</b> a better chance to win). Auto-recomputes every draw.</div></div>`:''}
     <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}
-      <div class="tag">Hot + recent + persistent across the whole history.</div></div>
+      <div class="tag">Hot + recent + persistent across the whole history. Same odds as any line — the most defensible guess <i>if</i> any tiny bias existed, not a proven edge.</div></div>
     <div class="ticket"><h4>🎲 Behavior mimic — trained on ${g.name}'s distribution</h4><div class="balls" id="m-${g.sp}"></div>
       <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">new mimic draw</button>
       <div class="tag">Crypto-uniform whites (their proven true behavior) + a special drawn from the game's real distribution${gkey==='lottoAmerica'?' — favors the hot star the way the RNG actually does':' (≈ uniform for Powerball)'}. Mimics the fingerprint, not the future — same odds.</div></div>
@@ -307,6 +315,7 @@ async function refreshPB(manual){
     const prevThrough=DATA.powerball.dataThrough;
     DATA.powerball.draws=rows.length;
     DATA.powerball.history=rows.map(r=>[...r.w.slice().sort((a,b)=>a-b),r.s]);
+    DATA.powerball.historyDates=rows.map(r=>String(r.key).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3')); /* keep dates in lockstep with history (wins-log) */
     DATA.powerball.dataThrough=String(last.key).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3');
     if(prevThrough!==DATA.powerball.dataThrough) delete DATA.powerball.jackpotOutcome; /* outcome belonged to an older draw */
     DATA.powerball.live=true;
