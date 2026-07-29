@@ -90,6 +90,7 @@
       <button class="labtab" data-t="bt">Walk-forward</button>
       <button class="labtab" data-t="chrono">Chrono mimic</button>
       <button class="labtab" data-t="intel">🧠 Intel</button>
+      <button class="labtab" data-t="slip">🎰 Playslip</button>
       <button class="labtab" data-t="crack">Real crack</button>
     </div>
     <div class="labgame"><span>Data set:</span>
@@ -369,6 +370,66 @@ setTimeout(()=>syncData(),400);
     lottoAmerica:{pool:52,spool:10,price:1,jodds:25989600,fixed:[[20000,2887733.33],[1000,110594.04],[100,12288.23],[20,2404.22],[5,267.14],[5,160.28],[2,29.14],[2,16.94]],prizes:{3:5,4:100,5:20000},sp:'SB'}
   };
   let TAB='rng', GAME='powerball';
+  let slipWin=60, slipIdx=1e9, slipPlay=null;
+  function slipShow(){ const k=GAME, H=hist(k), n=H.length; if(!n) return;
+    const w=slipWin==='all'?n:Math.min(+slipWin,n), start=n-w; let i=Math.max(0,Math.min(slipIdx,w-1)); slipIdx=i; const gg=start+i, d=H[gg];
+    const g=document.getElementById('slipdraw'); if(g)g.innerHTML=slipGrid(d.slice(0,5),k,16,d[5]);
+    const sc=document.getElementById('slipscrub'); if(sc){sc.max=w-1;sc.value=i;}
+    const pos=document.getElementById('slippos'); if(pos)pos.textContent=(i+1)+' / '+w;
+    const dts=(DATA[k]&&DATA[k].historyDates)||(window.LOTTO_HISTORY_DATES&&window.LOTTO_HISTORY_DATES[k])||[];
+    const lbl=document.getElementById('sliplbl'); if(lbl)lbl.textContent=dts[gg]?('drawn '+dts[gg]):('draw #'+(gg+1));
+    const nm=document.getElementById('slipnums'); if(nm)nm.textContent=d.slice(0,5).join(' ')+' + '+d[5]; }
+  function wireSlip(){
+    document.querySelectorAll('.slipwin').forEach(bt=>bt.onclick=function(){ slipWin=this.dataset.w; slipIdx=1e9;
+      document.querySelectorAll('.slipwin').forEach(x=>{x.style.background='var(--bg-input)';x.style.color='var(--ink)';}); this.style.background='var(--deep)'; this.style.color='#fff'; slipShow(); });
+    const sc=document.getElementById('slipscrub'); if(sc)sc.oninput=function(){ slipIdx=+this.value; slipShow(); };
+    const pl=document.getElementById('slipplay'); if(pl)pl.onclick=function(){ if(slipPlay){clearInterval(slipPlay);slipPlay=null;this.textContent='▶';}
+      else {this.textContent='⏸';slipPlay=setInterval(()=>{const H=hist(GAME),n=H.length,w=slipWin==='all'?n:Math.min(+slipWin,n);slipIdx=(slipIdx+1)%w;slipShow();},110);} }; }
+  function panelPlayslip(k){
+    const M=META[k], H=hist(k), n=H.length; if(n<50) return '<div class="verdict warn">No draw history loaded.</div>';
+    const gi=gridInfo(k), pool=gi.pool, W=gi.W, rows=gi.R;
+    const pos=num=>{const p=gi.pos(num);return {c:p[0],r:p[1]};};
+    const hits=new Array(pool+1).fill(0); H.forEach(d=>{for(let i=0;i<5;i++)hits[d[i]]++;});
+    const maxH=Math.max.apply(null,hits.slice(1)), minH=Math.min.apply(null,hits.slice(1)), meanH=n*5/pool;
+    const latest=H[n-1].slice(0,5);
+    const cell=26, gw=W*cell, gh=rows*cell;
+    let heat='<svg viewBox="0 0 '+gw+' '+gh+'" style="max-width:320px;width:100%">';
+    for(let num=1;num<=pool;num++){const p=pos(num),x=p.c*cell,y=p.r*cell,t=(hits[num]-minH)/Math.max(1,maxH-minH),on=latest.includes(num);
+      heat+='<rect x="'+(x+2)+'" y="'+(y+2)+'" width="'+(cell-4)+'" height="'+(cell-4)+'" rx="5" fill="rgba(58,173,128,'+(0.10+0.75*t).toFixed(3)+')"'+(on?' stroke="var(--deep)" stroke-width="2.5"':'')+'/>';
+      heat+='<text x="'+(x+cell/2)+'" y="'+(y+cell/2+3.5)+'" text-anchor="middle" font-size="10" fill="var(--ink)">'+num+'</text>';}
+    heat+='</svg>';
+    const sf=(DATA[k].powerFreq||DATA[k].starFreq)||[], spool=sf.length||(k==='powerball'?26:10);
+    const latestSp=H[n-1][5], sfmax=Math.max(1,...(sf.length?sf:[1])), sfmin=sf.length?Math.min(...sf):0;
+    const cxr=100,cyr=100,rad=80,dotr=k==='powerball'?9:13;
+    let ring='<svg viewBox="0 0 200 200" style="max-width:190px;width:100%">';
+    for(let i=1;i<=spool;i++){const a=2*Math.PI*(i-1)/spool-Math.PI/2, x=(cxr+rad*Math.cos(a)).toFixed(1), y=(cyr+rad*Math.sin(a)).toFixed(1), tt=sf.length?(sf[i-1]-sfmin)/Math.max(1,sfmax-sfmin):0.5, on=i===latestSp;
+      ring+='<circle cx="'+x+'" cy="'+y+'" r="'+dotr+'" fill="'+(on?spColor(k):'rgba(58,173,128,'+(0.14+0.7*tt).toFixed(2)+')')+'"/>';
+      ring+='<text x="'+x+'" y="'+(+y+3).toFixed(1)+'" text-anchor="middle" font-size="9" fill="'+(on?'#fff':'var(--ink)')+'">'+i+'</text>';}
+    ring+='</svg>';
+    function geom(draws){let cx=0,cy=0,sp=0;for(const w of draws){let mx=0,my=0;for(const num of w){const p=pos(num);mx+=p.c;my+=p.r;}mx/=5;my/=5;cx+=mx;cy+=my;let s=0;for(const num of w){const p=pos(num);s+=Math.hypot(p.c-mx,p.r-my);}sp+=s/5;}const m=draws.length;return{cx:cx/m,cy:cy/m,sp:sp/m};}
+    const real=geom(H.map(d=>d.slice(0,5)));
+    const sim=[];for(let i=0;i<n;i++){const s=new Set();while(s.size<5)s.add(1+Math.floor(Math.random()*pool));sim.push([...s]);}
+    const rnd=geom(sim);
+    const chiW=hits.slice(1).reduce((a,o)=>a+(o-meanH)**2/meanH,0), dfW=pool-1, uniform=Math.abs((chiW-dfW)/Math.sqrt(2*dfW))<2.58;
+    const wins=['30','60','90','200','all'];
+    const viewer='<div class="labnote" style="background:var(--bg-input);margin-bottom:12px">'+
+      '<div style="font-weight:600;margin-bottom:6px">🎞 Look through the drawings</div>'+
+      '<div style="margin-bottom:6px">'+wins.map(wv=>'<button class="slipwin" data-w="'+wv+'" style="padding:5px 10px;margin:0 5px 5px 0;border:1.5px solid var(--line);border-radius:16px;background:'+(String(slipWin)===wv?'var(--deep)':'var(--bg-input)')+';color:'+(String(slipWin)===wv?'#fff':'var(--ink)')+';font-size:12px">'+(wv==='all'?'all '+n:'last '+wv)+'</button>').join('')+'</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:baseline"><span id="sliplbl" style="font-size:12px;color:var(--muted)"></span><span id="slipnums" style="font-size:12px;font-weight:600;font-family:monospace"></span></div>'+
+      '<div id="slipdraw" style="text-align:center;margin-top:6px"></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-top:8px"><button id="slipplay" style="padding:5px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg-input)">▶</button><input id="slipscrub" type="range" min="0" value="0" step="1" style="flex:1"><span id="slippos" style="font-size:12px;color:var(--muted);min-width:64px;text-align:right"></span></div>'+
+      '<div class="tag" style="margin-top:4px">Scrub or press ▶ to watch every drawing&rsquo;s shape across the window &mdash; they wander with no rhythm.</div></div>';
+    const ringBlock='<div style="text-align:center;margin-top:10px"><div class="tag">🔵 Bonus ball on its own uniform ring (1 in '+spool+') &mdash; '+(k==='lottoAmerica'?'the star is marginally hotter on #'+((DATA[k].specialBias&&DATA[k].specialBias.hot)||4)+', the one real (tiny) anomaly':'flat, as a fair machine gives')+'; red = latest.</div>'+ring+'</div>';
+    return viewer+'<p class="sub" style="margin:0 0 6px">All '+n+' draws on the near-square '+W+'-wide grid of 1&ndash;'+pool+' (bonus on its own ring). Outlined = latest; shading = hit frequency.</p>'+
+      '<div style="text-align:center">'+heat+'</div>'+ringBlock+
+      '<table class="lab" style="margin-top:10px"><thead><tr><th>Geometry (mean, '+n+' draws)</th><th class="n">Real</th><th class="n">Random</th></tr></thead><tbody>'+
+      '<tr><td>Center of mass</td><td class="n">'+real.cx.toFixed(2)+','+real.cy.toFixed(2)+'</td><td class="n">'+rnd.cx.toFixed(2)+','+rnd.cy.toFixed(2)+'</td></tr>'+
+      '<tr><td>Spread</td><td class="n">'+real.sp.toFixed(2)+'</td><td class="n">'+rnd.sp.toFixed(2)+'</td></tr>'+
+      '<tr><td>Uniformity &chi;&sup2;/df</td><td class="n" colspan="2">'+chiW.toFixed(0)+'/'+dfW+' &mdash; '+(uniform?'uniform':'flag')+'</td></tr>'+
+      '</tbody></table>'+
+      '<div class="verdict '+(uniform?'pass':'warn')+'">Winning-number geometry is identical to random &mdash; no shape the draw favors, so no un-drawn shape is more likely to hit.</div>'+
+      '<div class="labnote"><b>The pattern is human, not in the draw.</b> Pretty slips (lines, diagonals, 1&middot;2&middot;3&middot;4&middot;5) get chosen by many players, so if one hits it is split many ways &mdash; the 2005 fortune-cookie draw made 110 Match-5 winners from one popular set. A shape changes who you&rsquo;d split with, never whether you win.</div>';
+  }
 
   function panelRNG(k){
     const H=hist(k),n=H.length,M=META[k];
@@ -569,6 +630,7 @@ setTimeout(()=>syncData(),400);
 
   function render(){
     const b=document.getElementById('labbody');if(!b)return;
+    if(slipPlay){clearInterval(slipPlay);slipPlay=null;}
     document.querySelectorAll('.labgame').forEach(el=>el.style.display=(TAB==='crack')?'none':'flex');
     if(TAB==='rng')b.innerHTML=panelRNG(GAME);
     else if(TAB==='ev')b.innerHTML=panelEV(GAME);
@@ -576,6 +638,7 @@ setTimeout(()=>syncData(),400);
     else if(TAB==='bt'){b.innerHTML=panelBT(GAME);document.getElementById('btgo').onclick=runBT;}
     else if(TAB==='chrono'){b.innerHTML=panelChrono(GAME);document.getElementById('chronogo').onclick=runChrono;}
     else if(TAB==='intel'){b.innerHTML=panelIntel(GAME);document.getElementById('intelgo').onclick=runIntel;}
+    else if(TAB==='slip'){slipIdx=1e9;b.innerHTML=panelPlayslip(GAME);wireSlip();slipShow();}
     else b.innerHTML=panelCrack();
   }
   document.querySelectorAll('.labtab').forEach(t=>t.onclick=function(){document.querySelectorAll('.labtab').forEach(x=>x.classList.remove('active'));t.classList.add('active');TAB=t.dataset.t;render();});
