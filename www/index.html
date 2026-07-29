@@ -199,17 +199,22 @@ function lineRecordLine(line,gkey,gname){
 function gridInfo(gkey){const pool=gkey==='powerball'?69:52,W=gkey==='powerball'?9:8,R=Math.ceil(pool/W),lastN=pool-(R-1)*W,off=(W-lastN)/2;
   return {pool,W,R,pos:num=>{const c=(num-1)%W,r=Math.floor((num-1)/W);return [r===R-1?c+off:c, r];}};}
 const spColor=gkey=>gkey==='powerball'?'#df4b47':'#e3a72c';
-function slipGrid(whites, gkey, cell, special){
-  const gi=gridInfo(gkey); cell=cell||17; const gw=gi.W*cell, gh=gi.R*cell, set=new Set(whites);
-  const bw=special!=null?cell*1.7:0, fs=(cell*0.4).toFixed(1);
-  let s='<svg viewBox="0 0 '+(gw+bw)+' '+gh+'" width="'+(gw+bw)+'" height="'+gh+'" style="max-width:100%">';
-  for(let num=1;num<=gi.pool;num++){const p=gi.pos(num),x=p[0]*cell,y=p[1]*cell,on=set.has(num);
-    if(on) s+='<circle cx="'+(x+cell/2)+'" cy="'+(y+cell/2)+'" r="'+(cell*0.46)+'" fill="var(--deep)"/>';
-    s+='<text x="'+(x+cell/2)+'" y="'+(y+cell/2+cell*0.15)+'" text-anchor="middle" font-size="'+fs+'" fill="'+(on?'#fff':'var(--muted)')+'"'+(on?' font-weight="600"':'')+'>'+num+'</text>';}
-  if(special!=null){const bx=gw+bw/2, by=gh/2;
-    s+='<circle cx="'+bx+'" cy="'+by+'" r="'+(cell*0.5)+'" fill="'+spColor(gkey)+'"/>';
-    s+='<text x="'+bx+'" y="'+(by+cell*0.16)+'" text-anchor="middle" font-size="'+fs+'" fill="#fff" font-weight="600">'+special+'</text>';
-    s+='<text x="'+bx+'" y="'+(by+cell*0.5+9)+'" text-anchor="middle" font-size="8" fill="var(--muted)">'+(gkey==='powerball'?'PB':'SB')+'</text>';}
+function ringXY(i,count,R,cx,cy){const a=-Math.PI/2+2*Math.PI*(i-1)/count;return [cx+R*Math.cos(a), cy+R*Math.sin(a)];}
+function slipGrid(whites, gkey, size, special){
+  const pool=gkey==='powerball'?69:52, spool=gkey==='powerball'?26:10; size=size||150;
+  const cx=size/2, cy=size/2, hasB=special!=null, Rout=size*0.43, Rin=size*0.24, wset=new Set(whites);
+  let s='<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="max-width:100%">';
+  s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+Rout.toFixed(1)+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/>';
+  if(hasB)s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+Rin.toFixed(1)+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/>';
+  const wd=Math.max(3, 2*Math.PI*Rout/pool*0.44);
+  for(let i=1;i<=pool;i++){const p=ringXY(i,pool,Rout,cx,cy),on=wset.has(i);
+    s+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+(on?wd*1.4:wd*0.72).toFixed(1)+'" fill="'+(on?'var(--deep)':'var(--bg-input)')+'" stroke="'+(on?'var(--deep)':'var(--line2)')+'" stroke-width="0.4"/>';
+    s+='<text x="'+p[0].toFixed(1)+'" y="'+(p[1]+wd*0.5).toFixed(1)+'" text-anchor="middle" font-size="'+(wd*1.3).toFixed(1)+'" fill="'+(on?'#fff':'var(--muted)')+'"'+(on?' font-weight="600"':'')+'>'+i+'</text>';}
+  if(hasB){const bd=Math.max(4, 2*Math.PI*Rin/spool*0.44);
+    for(let j=1;j<=spool;j++){const p=ringXY(j,spool,Rin,cx,cy),on=j===special;
+      s+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+(on?bd*1.4:bd*0.72).toFixed(1)+'" fill="'+(on?spColor(gkey):'var(--bg-input)')+'" stroke="'+(on?spColor(gkey):'var(--line2)')+'" stroke-width="0.4"/>';
+      s+='<text x="'+p[0].toFixed(1)+'" y="'+(p[1]+bd*0.5).toFixed(1)+'" text-anchor="middle" font-size="'+(bd*1.3).toFixed(1)+'" fill="'+(on?'#fff':'var(--muted)')+'"'+(on?' font-weight="600"':'')+'>'+j+'</text>';}
+    s+='<text x="'+cx+'" y="'+(cy+size*0.02)+'" text-anchor="middle" font-size="'+(size*0.055).toFixed(1)+'" fill="var(--muted)">'+(gkey==='powerball'?'PB':'SB')+'</text>';}
   s+='</svg>';return s;
 }
 function card(g,gkey){
@@ -222,7 +227,7 @@ function card(g,gkey){
     <div class="method">${g.method}</div>
     <div class="method" style="color:${g.live?'var(--good)':'var(--muted)'}">${g.live?'● live — auto-updates':'● data through '+g.dataThrough+' · refreshes from the live feed when online'}</div>
     ${ldr?`<div class="lastwin"><div class="lwlbl">🏆 Most recent winning numbers${g.dataThrough?` · <span class="lwdate">${g.dataThrough}</span>`:''}</div>
-      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div><div style="margin-top:8px">${slipGrid(ldr.slice(0,5),gkey,17,ldr[5])}<div class="tag" style="margin-top:2px">🎰 its shape on the near-square ${gridInfo(gkey).W}-wide grid (bonus ball on its own ring) — each state's slip differs, so the shape is layout, not signal</div></div>${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
+      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div><div style="margin-top:8px">${slipGrid(ldr.slice(0,5),gkey,170,ldr[5])}<div class="tag" style="margin-top:2px">🎰 its shape on the circle — whites on the outer ring, bonus on the inner. A ring is the most natural layout for a uniform draw; still a picture, not a signal</div></div>${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
     <div class="count"><div class="lbl">next drawing</div><div class="clock" data-clk>${left(nd-new Date())}</div>
       <div class="tag">${nd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div></div>
     <div class="jrow"><span class="k">Jackpot (est.)</span><span class="v">≈${moneyM(g.advertisedAnnuity)}</span></div>
@@ -230,14 +235,14 @@ function card(g,gkey){
     <div class="jrow"><span class="k">Odds</span><span class="v">1 in ${g.odds.toLocaleString()}</span></div>
     <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
-    <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(myLineFor(gkey).white,gkey,15,myLineFor(gkey).special)}</div>
+    <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(myLineFor(gkey).white,gkey,150,myLineFor(gkey).special)}</div>
       <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div>${lineRecordLine(myLineFor(gkey),gkey,g.name)}</div>
-    ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)">★★ THE BEST TICKET — most winner-like, same odds</h4>${balls(g.ticketFusion,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketFusion.white,gkey,15,g.ticketFusion.special)}</div>
+    ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)">★★ THE BEST TICKET — most winner-like, same odds</h4>${balls(g.ticketFusion,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketFusion.white,gkey,150,g.ticketFusion.special)}</div>
       <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the most winner-<i>like</i> single line the data supports (a descriptive pick, <b>not</b> a better chance to win). Auto-recomputes every draw.</div></div>`:''}
-    <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketEdge.white,gkey,15,g.ticketEdge.special)}</div>
+    <div class="ticket"><h4>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketEdge.white,gkey,150,g.ticketEdge.special)}</div>
       <div class="tag">Hot + recent + persistent across the whole history. Same odds as any line — the most defensible guess <i>if</i> any tiny bias existed, not a proven edge.</div></div>
-    ${g.ticketShape?`<div class="ticket"><h4>🎨 Most winner-like SHAPE — never drawn</h4>${balls(g.ticketShape,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketShape.white,gkey,15,g.ticketShape.special)}</div>
-      <div class="tag">The never-drawn line whose <b>shape</b> on the ${gridInfo(gkey).W}-wide grid is the most statistically typical of every past winner${g.ticketShape.fit!=null?' (fit '+g.ticketShape.fit+')':''} — the best-looking, most winner-shaped pick. Grid geometry has <b>no</b> predictive power, same odds as any line. Auto-recomputes every draw.</div></div>`:''}
+    ${g.ticketShape?`<div class="ticket"><h4>🎨 Most winner-like SHAPE — never drawn</h4>${balls(g.ticketShape,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketShape.white,gkey,150,g.ticketShape.special)}</div>
+      <div class="tag">The never-drawn line whose <b>shape on the ring</b> is the most statistically typical of every past winner${g.ticketShape.fit!=null?' (fit '+g.ticketShape.fit+')':''} — evenly spread around the circle, the best-looking, most winner-shaped pick. Ring geometry has <b>no</b> predictive power, same odds as any line. Auto-recomputes every draw.</div></div>`:''}
     <div class="ticket"><h4>🎲 Behavior mimic — trained on ${g.name}'s distribution</h4><div class="balls" id="m-${g.sp}"></div>
       <div id="mg-${g.sp}" style="margin-top:6px"></div>
       <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">new mimic draw</button>
@@ -250,7 +255,7 @@ function weightedInt(weights){const tot=weights.reduce((a,b)=>a+b,0);if(!tot)ret
 /* Behavior mimic: crypto-uniform whites (their proven true behavior) + special sampled from the game's
    REAL observed distribution (computed from history — captures Lotto America's star-4 tilt). */
 function mimicLine(pool,spool,sfreq){const w=new Set();while(w.size<5)w.add(1+rndInt(pool));return{white:[...w].sort((a,b)=>a-b),special:(sfreq&&sfreq.length===spool)?weightedInt(sfreq):1+rndInt(spool)};}
-window.newMimic=function(id,pool,spool,cls,gkey){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}const t=mimicLine(pool,spool,sf);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;const gel=document.getElementById(id.replace('m-','mg-'));if(gel)gel.innerHTML=slipGrid(t.white,gkey,15,t.special);};
+window.newMimic=function(id,pool,spool,cls,gkey){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}const t=mimicLine(pool,spool,sf);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;const gel=document.getElementById(id.replace('m-','mg-'));if(gel)gel.innerHTML=slipGrid(t.white,gkey,150,t.special);};
 function renderLearner(){
   const el=document.getElementById('learnerbody'); if(!el) return;
   let h='Two things per game: (1) a lifetime record of every LINE the app lists — My Line, Best ticket, Edge pick — scored against all past draws with a dated wins log; and (2) the prospective method ledger the cloud runner scores after each new draw. If any line or method ever truly beat chance, it separates from the pack here.';
@@ -373,7 +378,7 @@ setTimeout(()=>syncData(),400);
   let slipWin=60, slipIdx=1e9, slipPlay=null;
   function slipShow(){ const k=GAME, H=hist(k), n=H.length; if(!n) return;
     const w=slipWin==='all'?n:Math.min(+slipWin,n), start=n-w; let i=Math.max(0,Math.min(slipIdx,w-1)); slipIdx=i; const gg=start+i, d=H[gg];
-    const g=document.getElementById('slipdraw'); if(g)g.innerHTML=slipGrid(d.slice(0,5),k,16,d[5]);
+    const g=document.getElementById('slipdraw'); if(g)g.innerHTML=slipGrid(d.slice(0,5),k,300,d[5]);
     const sc=document.getElementById('slipscrub'); if(sc){sc.max=w-1;sc.value=i;}
     const pos=document.getElementById('slippos'); if(pos)pos.textContent=(i+1)+' / '+w;
     const dts=(DATA[k]&&DATA[k].historyDates)||(window.LOTTO_HISTORY_DATES&&window.LOTTO_HISTORY_DATES[k])||[];
@@ -387,30 +392,30 @@ setTimeout(()=>syncData(),400);
       else {this.textContent='⏸';slipPlay=setInterval(()=>{const H=hist(GAME),n=H.length,w=slipWin==='all'?n:Math.min(+slipWin,n);slipIdx=(slipIdx+1)%w;slipShow();},110);} }; }
   function panelPlayslip(k){
     const M=META[k], H=hist(k), n=H.length; if(n<50) return '<div class="verdict warn">No draw history loaded.</div>';
-    const gi=gridInfo(k), pool=gi.pool, W=gi.W, rows=gi.R;
-    const pos=num=>{const p=gi.pos(num);return {c:p[0],r:p[1]};};
+    const pool=(k==='powerball'?69:52), spool=(k==='powerball'?26:10);
     const hits=new Array(pool+1).fill(0); H.forEach(d=>{for(let i=0;i<5;i++)hits[d[i]]++;});
-    const maxH=Math.max.apply(null,hits.slice(1)), minH=Math.min.apply(null,hits.slice(1)), meanH=n*5/pool;
-    const latest=H[n-1].slice(0,5);
-    const cell=26, gw=W*cell, gh=rows*cell;
-    let heat='<svg viewBox="0 0 '+gw+' '+gh+'" style="max-width:320px;width:100%">';
-    for(let num=1;num<=pool;num++){const p=pos(num),x=p.c*cell,y=p.r*cell,t=(hits[num]-minH)/Math.max(1,maxH-minH),on=latest.includes(num);
-      heat+='<rect x="'+(x+2)+'" y="'+(y+2)+'" width="'+(cell-4)+'" height="'+(cell-4)+'" rx="5" fill="rgba(58,173,128,'+(0.10+0.75*t).toFixed(3)+')"'+(on?' stroke="var(--deep)" stroke-width="2.5"':'')+'/>';
-      heat+='<text x="'+(x+cell/2)+'" y="'+(y+cell/2+3.5)+'" text-anchor="middle" font-size="10" fill="var(--ink)">'+num+'</text>';}
-    heat+='</svg>';
-    const sf=(DATA[k].powerFreq||DATA[k].starFreq)||[], spool=sf.length||(k==='powerball'?26:10);
-    const latestSp=H[n-1][5], sfmax=Math.max(1,...(sf.length?sf:[1])), sfmin=sf.length?Math.min(...sf):0;
-    const cxr=100,cyr=100,rad=80,dotr=k==='powerball'?9:13;
-    let ring='<svg viewBox="0 0 200 200" style="max-width:190px;width:100%">';
-    for(let i=1;i<=spool;i++){const a=2*Math.PI*(i-1)/spool-Math.PI/2, x=(cxr+rad*Math.cos(a)).toFixed(1), y=(cyr+rad*Math.sin(a)).toFixed(1), tt=sf.length?(sf[i-1]-sfmin)/Math.max(1,sfmax-sfmin):0.5, on=i===latestSp;
-      ring+='<circle cx="'+x+'" cy="'+y+'" r="'+dotr+'" fill="'+(on?spColor(k):'rgba(58,173,128,'+(0.14+0.7*tt).toFixed(2)+')')+'"/>';
-      ring+='<text x="'+x+'" y="'+(+y+3).toFixed(1)+'" text-anchor="middle" font-size="9" fill="'+(on?'#fff':'var(--ink)')+'">'+i+'</text>';}
-    ring+='</svg>';
-    function geom(draws){let cx=0,cy=0,sp=0;for(const w of draws){let mx=0,my=0;for(const num of w){const p=pos(num);mx+=p.c;my+=p.r;}mx/=5;my/=5;cx+=mx;cy+=my;let s=0;for(const num of w){const p=pos(num);s+=Math.hypot(p.c-mx,p.r-my);}sp+=s/5;}const m=draws.length;return{cx:cx/m,cy:cy/m,sp:sp/m};}
+    const maxH=Math.max.apply(null,hits.slice(1)), minH=Math.min.apply(null,hits.slice(1));
+    const latest=H[n-1].slice(0,5), latestSp=H[n-1][5];
+    const sf=(DATA[k].powerFreq||DATA[k].starFreq)||[], sfmax=Math.max(1,...(sf.length?sf:[1])), sfmin=sf.length?Math.min(...sf):0;
+    const SZ=300, cx=SZ/2, cy=SZ/2, Rout=SZ*0.43, Rin=SZ*0.24;
+    let heat='<svg viewBox="0 0 '+SZ+' '+SZ+'" style="max-width:300px;width:100%">';
+    heat+='<circle cx="'+cx+'" cy="'+cy+'" r="'+Rout+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/><circle cx="'+cx+'" cy="'+cy+'" r="'+Rin+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/>';
+    const wd=Math.max(4,2*Math.PI*Rout/pool*0.44);
+    for(let i=1;i<=pool;i++){const p=ringXY(i,pool,Rout,cx,cy),t=(hits[i]-minH)/Math.max(1,maxH-minH),on=latest.includes(i);
+      heat+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+(wd*1.15).toFixed(1)+'" fill="rgba(58,173,128,'+(0.12+0.75*t).toFixed(3)+')"'+(on?' stroke="var(--deep)" stroke-width="2"':'')+'/>';
+      heat+='<text x="'+p[0].toFixed(1)+'" y="'+(p[1]+wd*0.5).toFixed(1)+'" text-anchor="middle" font-size="'+(wd*1.2).toFixed(1)+'" fill="var(--ink)">'+i+'</text>';}
+    const bd=Math.max(5,2*Math.PI*Rin/spool*0.44);
+    for(let j=1;j<=spool;j++){const p=ringXY(j,spool,Rin,cx,cy),tt=sf.length?(sf[j-1]-sfmin)/Math.max(1,sfmax-sfmin):0.5,on=j===latestSp;
+      heat+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+(bd*1.15).toFixed(1)+'" fill="'+(on?spColor(k):'rgba(58,173,128,'+(0.12+0.7*tt).toFixed(2)+')')+'"/>';
+      heat+='<text x="'+p[0].toFixed(1)+'" y="'+(p[1]+bd*0.5).toFixed(1)+'" text-anchor="middle" font-size="'+(bd*1.2).toFixed(1)+'" fill="'+(on?'#fff':'var(--ink)')+'">'+j+'</text>';}
+    heat+='<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-size="13" fill="var(--muted)">'+(k==='powerball'?'PB':'SB')+'</text></svg>';
+    const rp=n2=>ringXY(n2,pool,1,0,0);
+    function geom(draws){let R=0,sp=0;for(const w of draws){let ax=0,ay=0;for(const num of w){const p=rp(num);ax+=p[0];ay+=p[1];}ax/=5;ay/=5;R+=Math.hypot(ax,ay);let s=0;for(const num of w){const p=rp(num);s+=Math.hypot(p[0]-ax,p[1]-ay);}sp+=s/5;}const m=draws.length;return{R:R/m,sp:sp/m};}
     const real=geom(H.map(d=>d.slice(0,5)));
     const sim=[];for(let i=0;i<n;i++){const s=new Set();while(s.size<5)s.add(1+Math.floor(Math.random()*pool));sim.push([...s]);}
     const rnd=geom(sim);
-    const chiW=hits.slice(1).reduce((a,o)=>a+(o-meanH)**2/meanH,0), dfW=pool-1, uniform=Math.abs((chiW-dfW)/Math.sqrt(2*dfW))<2.58;
+    const thB=new Array(12).fill(0); H.forEach(d=>{let ax=0,ay=0;for(let i=0;i<5;i++){const p=rp(d[i]);ax+=p[0];ay+=p[1];}let a=Math.atan2(ay,ax)*180/Math.PI;if(a<0)a+=360;thB[Math.min(11,Math.floor(a/30))]++;});
+    const chiTh=thB.reduce((s,o)=>s+(o-n/12)**2/(n/12),0), uniform=chiTh<19.7;
     const wins=['30','60','90','200','all'];
     const viewer='<div class="labnote" style="background:var(--bg-input);margin-bottom:12px">'+
       '<div style="font-weight:600;margin-bottom:6px">🎞 Look through the drawings</div>'+
@@ -418,17 +423,16 @@ setTimeout(()=>syncData(),400);
       '<div style="display:flex;justify-content:space-between;align-items:baseline"><span id="sliplbl" style="font-size:12px;color:var(--muted)"></span><span id="slipnums" style="font-size:12px;font-weight:600;font-family:monospace"></span></div>'+
       '<div id="slipdraw" style="text-align:center;margin-top:6px"></div>'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:8px"><button id="slipplay" style="padding:5px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg-input)">▶</button><input id="slipscrub" type="range" min="0" value="0" step="1" style="flex:1"><span id="slippos" style="font-size:12px;color:var(--muted);min-width:64px;text-align:right"></span></div>'+
-      '<div class="tag" style="margin-top:4px">Scrub or press ▶ to watch every drawing&rsquo;s shape across the window &mdash; they wander with no rhythm.</div></div>';
-    const ringBlock='<div style="text-align:center;margin-top:10px"><div class="tag">🔵 Bonus ball on its own uniform ring (1 in '+spool+') &mdash; '+(k==='lottoAmerica'?'the star is marginally hotter on #'+((DATA[k].specialBias&&DATA[k].specialBias.hot)||4)+', the one real (tiny) anomaly':'flat, as a fair machine gives')+'; red = latest.</div>'+ring+'</div>';
-    return viewer+'<p class="sub" style="margin:0 0 6px">All '+n+' draws on the near-square '+W+'-wide grid of 1&ndash;'+pool+' (bonus on its own ring). Outlined = latest; shading = hit frequency.</p>'+
-      '<div style="text-align:center">'+heat+'</div>'+ringBlock+
-      '<table class="lab" style="margin-top:10px"><thead><tr><th>Geometry (mean, '+n+' draws)</th><th class="n">Real</th><th class="n">Random</th></tr></thead><tbody>'+
-      '<tr><td>Center of mass</td><td class="n">'+real.cx.toFixed(2)+','+real.cy.toFixed(2)+'</td><td class="n">'+rnd.cx.toFixed(2)+','+rnd.cy.toFixed(2)+'</td></tr>'+
-      '<tr><td>Spread</td><td class="n">'+real.sp.toFixed(2)+'</td><td class="n">'+rnd.sp.toFixed(2)+'</td></tr>'+
-      '<tr><td>Uniformity &chi;&sup2;/df</td><td class="n" colspan="2">'+chiW.toFixed(0)+'/'+dfW+' &mdash; '+(uniform?'uniform':'flag')+'</td></tr>'+
+      '<div class="tag" style="margin-top:4px">Scrub or press ▶ to watch every drawing&rsquo;s shape spin around the ring &mdash; it wanders with no rhythm.</div></div>';
+    return viewer+'<p class="sub" style="margin:0 0 6px">All '+n+' draws on the CIRCLE &mdash; whites on the outer ring (shaded by hit frequency), bonus on the inner. Outlined = latest. A ring is the most natural layout for a uniform draw: no corners, no bias.</p>'+
+      '<div style="text-align:center">'+heat+'</div>'+
+      '<table class="lab" style="margin-top:10px"><thead><tr><th>Ring geometry ('+n+' draws)</th><th class="n">Real</th><th class="n">Random</th></tr></thead><tbody>'+
+      '<tr><td>Clustering (0=spread,1=clumped)</td><td class="n">'+real.R.toFixed(3)+'</td><td class="n">'+rnd.R.toFixed(3)+'</td></tr>'+
+      '<tr><td>Spread</td><td class="n">'+real.sp.toFixed(3)+'</td><td class="n">'+rnd.sp.toFixed(3)+'</td></tr>'+
+      '<tr><td>Direction uniformity &chi;&sup2;/11</td><td class="n" colspan="2">'+chiTh.toFixed(1)+' &mdash; '+(uniform?'no favoured direction':'flag')+'</td></tr>'+
       '</tbody></table>'+
-      '<div class="verdict '+(uniform?'pass':'warn')+'">Winning-number geometry is identical to random &mdash; no shape the draw favors, so no un-drawn shape is more likely to hit.</div>'+
-      '<div class="labnote"><b>The pattern is human, not in the draw.</b> Pretty slips (lines, diagonals, 1&middot;2&middot;3&middot;4&middot;5) get chosen by many players, so if one hits it is split many ways &mdash; the 2005 fortune-cookie draw made 110 Match-5 winners from one popular set. A shape changes who you&rsquo;d split with, never whether you win.</div>';
+      '<div class="verdict '+(uniform?'pass':'warn')+'">On the ring the geometry is identical to random &mdash; no favoured direction, no rotation, shapes recur no more than chance. No shape the draw favours.</div>'+
+      '<div class="labnote"><b>The pattern is human, not in the draw.</b> Pretty tickets (lines, 1&middot;2&middot;3&middot;4&middot;5) get chosen by many players, so if one hits it is split many ways &mdash; the 2005 fortune-cookie draw made 110 Match-5 winners from one popular set. A shape changes who you&rsquo;d split with, never whether you win.</div>';
   }
 
   function panelRNG(k){
