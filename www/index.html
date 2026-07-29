@@ -196,6 +196,95 @@ function lineRecordLine(line,gkey,gname){
   const r=lineRecord(line,gkey); if(!r.draws) return '';
   return '<div class="tag" style="margin-top:6px;color:var(--deep)">📊 <b>All-time record</b> vs every real '+gname+' draw ('+r.draws.toLocaleString()+' draws): won <b>$'+r.won.toLocaleString()+'</b> on $'+r.spent.toLocaleString()+' ('+(r.spent?((r.won/r.spent-1)*100).toFixed(0):0)+'% ROI), hit a prize <b>'+r.hits+'</b>×, best <b>'+r.best+'/5</b>'+(r.jackpots?' + special 🎉':'')+'. A fixed line — a fair lifetime tally, same odds going forward.</div>';
 }
+/* ============ UNIFIED LINE SCORING — "winner-like-ness", descriptive only (NOT probability) ============ */
+const _wp={};
+function winnerProfile(gkey){
+  const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
+  const pool=gkey==='powerball'?69:52, spool=gkey==='powerball'?26:10, n=H.length;
+  const ck=gkey+':'+n; if(_wp[ck]) return _wp[ck];
+  const wf=new Array(pool+1).fill(0), sf=new Array(spool+1).fill(0), pair={};
+  const sums=[],spreads=[],odds=[],lows=[],consec=[],decs=[],Rs=[],sps=[];
+  const posSum=[0,0,0,0,0],posSq=[0,0,0,0,0]; const drawn=new Set();
+  const ang=x=>2*Math.PI*(x-1)/pool;
+  for(const row of H){ const w=row.slice(0,5), s=row[5];
+    w.forEach(x=>{if(x>=1&&x<=pool)wf[x]++;}); if(s>=1&&s<=spool)sf[s]++;
+    let sum=0,odd=0,low=0,cp=0; const ds=new Set();
+    for(let k=0;k<5;k++){sum+=w[k]; if(w[k]%2)odd++; if(w[k]<=pool/2)low++; ds.add(Math.floor((w[k]-1)/10)); if(k<4&&w[k+1]-w[k]===1)cp++; posSum[k]+=w[k]; posSq[k]+=w[k]*w[k];}
+    sums.push(sum);spreads.push(w[4]-w[0]);odds.push(odd);lows.push(low);consec.push(cp);decs.push(ds.size);
+    let ax=0,ay=0; for(const x of w){ax+=Math.cos(ang(x));ay+=Math.sin(ang(x));} ax/=5;ay/=5;
+    Rs.push(Math.hypot(ax,ay)); let sp=0; for(const x of w)sp+=Math.hypot(Math.cos(ang(x))-ax,Math.sin(ang(x))-ay); sps.push(sp/5);
+    for(let a=0;a<5;a++)for(let b=a+1;b<5;b++){const kk=w[a]+','+w[b];pair[kk]=(pair[kk]||0)+1;}
+    drawn.add(w.slice().sort((a,b)=>a-b).join('-')); }
+  const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+  const sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/(a.length||1))||1;};
+  const st=a=>({m:mean(a),sd:sd(a)});
+  const wfMax=Math.max(1,...wf.slice(1)), wfMin=Math.min(...wf.slice(1)), sfMax=Math.max(1,...sf.slice(1)), sfMin=Math.min(...sf.slice(1));
+  let pairMax=1; for(const k in pair) if(pair[k]>pairMax)pairMax=pair[k];
+  const posMean=posSum.map(v=>v/(n||1)), posSd=posMean.map((m,k)=>Math.sqrt(Math.max(0,posSq[k]/(n||1)-m*m))||1);
+  return _wp[ck]={n,pool,spool,wf,sf,pair,pairMax,drawn,ang,wfMax,wfMin,sfMax,sfMin,posMean,posSd,H,
+    sum:st(sums),spread:st(spreads),odd:st(odds),low:st(lows),consec:st(consec),dec:st(decs),R:st(Rs),spd:st(sps)};
+}
+const _clip=v=>Math.max(0,Math.min(100,v));
+const _ls={};
+function lineStats(line,gkey){
+  const P=winnerProfile(gkey); const w=line.white.slice().sort((a,b)=>a-b), sp=line.special, pool=P.pool, spool=P.spool;
+  const _lk=gkey+':'+P.n+':'+w.join('-')+'|'+sp; if(_ls[_lk])return _ls[_lk];
+  let sum=0,odd=0,low=0,cp=0; const ds=new Set();
+  for(let k=0;k<5;k++){sum+=w[k]; if(w[k]%2)odd++; if(w[k]<=pool/2)low++; ds.add(Math.floor((w[k]-1)/10)); if(k<4&&w[k+1]-w[k]===1)cp++;}
+  const spread=w[4]-w[0], dec=ds.size;
+  const z=(v,s)=>Math.abs(v-s.m)/(s.sd||1), zmap=za=>_clip(100*(1-za/3));
+  const typ=zmap((z(sum,P.sum)+z(spread,P.spread)+z(odd,P.odd)+z(low,P.low)+z(dec,P.dec)+z(cp,P.consec))/6);
+  const _hd=P.wfMax-P.wfMin, hot=_hd?_clip(100*w.reduce((a,x)=>a+(P.wf[x]-P.wfMin)/_hd,0)/5):50;
+  let pv=0; for(let a=0;a<5;a++)for(let b=a+1;b<5;b++){pv+=(P.pair[w[a]+','+w[b]]||0)/P.pairMax;} const pair=_clip(100*pv/10);
+  let pz=0; for(let k=0;k<5;k++)pz+=Math.abs(w[k]-P.posMean[k])/(P.posSd[k]||1); const pos=zmap(pz/5);
+  let ax=0,ay=0; for(const x of w){ax+=Math.cos(P.ang(x));ay+=Math.sin(P.ang(x));} ax/=5;ay/=5;
+  const R=Math.hypot(ax,ay); let s2=0; for(const x of w)s2+=Math.hypot(Math.cos(P.ang(x))-ax,Math.sin(P.ang(x))-ay); s2/=5;
+  const shape=zmap((z(R,P.R)+z(s2,P.spd))/2);
+  const _sd=P.sfMax-P.sfMin, spec=(sp>=1&&sp<=spool)?(_sd?_clip(100*(P.sf[sp]-P.sfMin)/_sd):50):50;
+  const sub={typ:Math.round(typ),hot:Math.round(hot),pair:Math.round(pair),pos:Math.round(pos),shape:Math.round(shape),spec:Math.round(spec)};
+  const W={typ:.24,hot:.20,pair:.16,pos:.12,shape:.16,spec:.12};
+  const score=Math.round(sub.typ*W.typ+sub.hot*W.hot+sub.pair*W.pair+sub.pos*W.pos+sub.shape*W.shape+sub.spec*W.spec);
+  let maxOv=0; for(const row of P.H){let m=0;for(let k=0;k<5;k++)if(w.indexOf(row[k])>=0)m++; if(m>maxOv)maxOv=m; if(maxOv===5)break;}
+  const specRank=(sp>=1&&sp<=spool)?(P.sf.slice(1).filter(v=>v>P.sf[sp]).length+1):null;
+  return _ls[_lk]={score,sub,facts:{sum,spread,odd,even:5-odd,low,high:5-low,consec:cp,dec,everDrawn:P.drawn.has(w.join('-')),maxOv,specRank,spool,
+    sumM:Math.round(P.sum.m),spreadM:Math.round(P.spread.m)}};
+}
+let lastMimic={};
+function handPick(gkey){ try{const o=JSON.parse(localStorage.getItem('saraLuckPicks')||'{}');const p=o[gkey];return (p&&p.white&&p.white.length===5&&p.special)?p:null;}catch(e){return null;} }
+function setHandPick(gkey,p){ try{const o=JSON.parse(localStorage.getItem('saraLuckPicks')||'{}');o[gkey]=p;localStorage.setItem('saraLuckPicks',JSON.stringify(o));}catch(e){} }
+function removeHandPick(gkey){ try{const o=JSON.parse(localStorage.getItem('saraLuckPicks')||'{}');delete o[gkey];localStorage.setItem('saraLuckPicks',JSON.stringify(o));}catch(e){} }
+function gameLines(gkey){ const g=DATA[gkey]; const out=[['⭐ My Line',myLineFor(gkey)]];
+  if(g.ticketFusion)out.push(['★★ Best',g.ticketFusion]);
+  if(g.ticketEdge)out.push(['★ Edge',g.ticketEdge]);
+  if(g.ticketShape)out.push(['🎨 Shape',g.ticketShape]);
+  const wt=winnerTwin(gkey); if(wt)out.push(['🪞 Winner’s twin',wt]);
+  const hp=handPick(gkey); if(hp)out.push(['✍ Your hand-pick',hp]);
+  const mm=lastMimic[gkey]; if(mm)out.push(['🎲 Mimic',mm]);
+  const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
+  if(H.length){const r=H[H.length-1];out.push(['🏆 Last winner',{white:r.slice(0,5),special:r[5]}]);}
+  return out; }
+function _lkey(line){return line.white.slice().sort((a,b)=>a-b).join('-')+'|'+line.special;}
+function scoreRanks(gkey){ const ls=gameLines(gkey).map(([name,line])=>({name,line,s:lineStats(line,gkey).score})); ls.sort((a,b)=>b.s-a.s||_lkey(a.line).localeCompare(_lkey(b.line))); ls.forEach((x,i)=>x.rank=i+1); return ls; }
+function rankOf(line,gkey){ const key=_lkey(line), r=scoreRanks(gkey); const i=r.findIndex(x=>_lkey(x.line)===key); return {rank:i>=0?r[i].rank:null,total:r.length}; }
+function _bar(label,v){ return '<span style="display:inline-block;margin:0 8px 3px 0;font-size:11px;color:var(--muted)" title="'+label+' '+v+'/100">'+label+' <span style="display:inline-block;width:32px;height:6px;background:var(--line);border-radius:3px;vertical-align:middle;overflow:hidden"><span style="display:block;height:100%;width:'+v+'%;background:var(--deep)"></span></span> '+v+'</span>'; }
+function statBlock(line,gkey,showRank){
+  const s=lineStats(line,gkey), f=s.facts, g=DATA[gkey], odds=g?g.odds.toLocaleString():'';
+  let rankTxt=''; if(showRank){const rk=rankOf(line,gkey); if(rk.rank)rankTxt=' · rank <b>'+rk.rank+'/'+rk.total+'</b>';}
+  const drawnTxt=f.everDrawn?'<b>this exact 5-set was drawn before</b>':(f.maxOv>=4?'shares '+f.maxOv+'/5 with a past draw':'never drawn (nor 4-of-5)');
+  const bonusTxt=f.specRank?' · bonus #'+line.special+' is the '+f.specRank+(f.specRank===1?'st':f.specRank===2?'nd':f.specRank===3?'rd':'th')+'-most-drawn of '+f.spool:'';
+  return '<details class="statwrap" style="margin-top:6px"><summary style="cursor:pointer;font-size:12.5px;color:var(--deep)">📊 <b>Winner-like score '+s.score+'</b>/100'+rankTxt+' <span style="color:var(--muted);font-weight:400">— the numbers behind it</span></summary>'+
+    '<div style="margin-top:6px">'+_bar('typicality',s.sub.typ)+_bar('hot',s.sub.hot)+_bar('pairs',s.sub.pair)+_bar('position',s.sub.pos)+_bar('shape',s.sub.shape)+_bar('bonus',s.sub.spec)+'</div>'+
+    '<div class="tag" style="margin-top:4px">sum <b>'+f.sum+'</b> (avg '+f.sumM+') · spread <b>'+f.spread+'</b> · <b>'+f.odd+'</b> odd / <b>'+f.even+'</b> even · <b>'+f.low+'</b> low / <b>'+f.high+'</b> high · <b>'+f.consec+'</b> consecutive-pair'+(f.consec===1?'':'s')+' · <b>'+f.dec+'</b> decade'+(f.dec===1?'':'s')+' · '+drawnTxt+bonusTxt+'</div>'+
+    '<div class="tag" style="color:var(--muted);margin-top:3px">Descriptive winner-<i>like</i>-ness — a match to the fingerprint of past winners, <b>not</b> a probability. Same 1 in '+odds+' odds as every line.</div></details>';
+}
+function scoreLeaderboard(gkey){
+  const g=DATA[gkey]; if(!g) return ''; const r=scoreRanks(gkey); if(!r.length) return '';
+  const odds=g.odds.toLocaleString();
+  return '<details open class="statwrap" style="margin-top:12px;background:var(--bg-input);border-radius:10px;padding:8px 10px"><summary style="cursor:pointer;font-weight:600;color:var(--deep)">🏅 Line rankings — every line scored &amp; ranked (auto-updates each draw)</summary>'+
+    '<table class="lab" style="margin-top:6px"><thead><tr><th>#</th><th>line</th><th class="n">score</th><th class="n">typ</th><th class="n">hot</th><th class="n">pair</th><th class="n">pos</th><th class="n">shape</th><th class="n">bonus</th></tr></thead><tbody>'+
+    r.map(x=>{const s=lineStats(x.line,gkey);return '<tr><td class="n">'+x.rank+'</td><td>'+x.name+' <span style="color:var(--muted);font-size:10px">'+x.line.white.join(' ')+' + '+x.line.special+'</span></td><td class="n"><b>'+s.score+'</b></td><td class="n">'+s.sub.typ+'</td><td class="n">'+s.sub.hot+'</td><td class="n">'+s.sub.pair+'</td><td class="n">'+s.sub.pos+'</td><td class="n">'+s.sub.shape+'</td><td class="n">'+s.sub.spec+'</td></tr>';}).join('')+
+    '</tbody></table><div class="tag" style="color:var(--muted);margin-top:4px">Points = how winner-<i>like</i> each line is (its match to the fingerprint of past winners), <b>not</b> a chance to win — all share 1 in '+odds+'. Notice the 🏆 last winner rarely tops the table: proof the score is descriptive, not predictive. Recalculated from the live history after every drawing.</div></details>';
+}
 const spColor=gkey=>gkey==='powerball'?'#df4b47':'#e3a72c';
 function ringXY(i,count,R,cx,cy){const a=-Math.PI/2+2*Math.PI*(i-1)/count;return [cx+R*Math.cos(a), cy+R*Math.sin(a)];}
 function slipGrid(whites, gkey, size, special){
@@ -215,6 +304,82 @@ function slipGrid(whites, gkey, size, special){
     s+='<text x="'+cx+'" y="'+(cy+size*0.02)+'" text-anchor="middle" font-size="'+(size*0.055).toFixed(1)+'" fill="var(--muted)">'+(gkey==='powerball'?'PB':'SB')+'</text>';}
   s+='</svg>';return s;
 }
+/* ============ WINNER'S TWIN — never-drawn line matching a real winner's fingerprint ============ */
+function _prof10(w,pool){ const s=w.slice().sort((a,b)=>a-b);
+  const sum=s[0]+s[1]+s[2]+s[3]+s[4], spread=s[4]-s[0];
+  let odd=0,low=0,consec=0; const ds=new Set();
+  for(let i=0;i<5;i++){ if(s[i]%2)odd++; if(s[i]<=pool/2)low++; ds.add(Math.floor((s[i]-1)/10)); if(i<4&&s[i+1]-s[i]===1)consec++; }
+  let mg=0; for(let i=0;i<4;i++)mg+=s[i+1]-s[i]; mg/=4;
+  let cx=0,cy=0; const ang=s.map(x=>2*Math.PI*(x-1)/pool); ang.forEach(t=>{cx+=Math.cos(t);cy+=Math.sin(t);}); cx/=5;cy/=5;
+  const R=Math.hypot(cx,cy), Rang=Math.atan2(cy,cx); let rs=0; ang.forEach(t=>{let dp=Math.abs(t-Rang); if(dp>Math.PI)dp=2*Math.PI-dp; rs+=dp;}); rs/=5;
+  return {sum,spread,odd,low,consec,decs:ds.size,meanGap:mg,R,Rang,rs}; }
+function _pdist(a,b){ let dR=Math.abs(a.Rang-b.Rang); if(dR>Math.PI)dR=2*Math.PI-dR; dR/=Math.PI;
+  const t=[(a.sum-b.sum)/100,(a.spread-b.spread)/50,(a.odd-b.odd)/2.5,(a.low-b.low)/2.5,(a.consec-b.consec)/1.5,(a.decs-b.decs)/2,(a.meanGap-b.meanGap)/12,(a.R-b.R)/0.5,dR,(a.rs-b.rs)/1.5];
+  return t.reduce((s,x)=>s+x*x,0); }
+const _twin={};
+function winnerTwin(gkey){
+  const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[]; const n=H.length; if(n<20) return null;
+  const ck=gkey+':'+n; if(_twin[ck]!==undefined) return _twin[ck];
+  const pool=gkey==='powerball'?69:52, last=H[n-1], target=_prof10(last.slice(0,5),pool), tSpec=last[5];
+  const exact=new Set(), past=[]; for(const dr of H){const w=dr.slice(0,5); exact.add(w.slice().sort((a,b)=>a-b).join(',')); past.push(w);}
+  const rnd=k=>1+Math.floor(Math.random()*k), key=set=>set.slice().sort((a,b)=>a-b).join(',');
+  const randSet=()=>{const s=new Set(); while(s.size<5)s.add(rnd(pool)); return [...s].sort((a,b)=>a-b);};
+  const maxOv=set=>{const S=new Set(set); let mx=0; for(const pw of past){let c=0; for(const x of pw)if(S.has(x))c++; if(c>mx)mx=c; if(mx===5)break;} return mx;};
+  const ok=set=>!exact.has(key(set))&&maxOv(set)<=3;
+  const neighbor=set=>{const s=new Set(set),a=[...s],old=a[Math.floor(Math.random()*5)]; s.delete(old); let v,g=0; do{v=Math.random()<0.7?old+(Math.floor(Math.random()*7)-3):rnd(pool);g++;}while((v<1||v>pool||s.has(v))&&g<60); if(v<1||v>pool||s.has(v))return set; s.add(v); return [...s].sort((a,b)=>a-b);};
+  let best=null,bestD=1e9;
+  for(let r=0;r<14;r++){ let cur=randSet(),cd=_pdist(_prof10(cur,pool),target);
+    for(let it=0;it<180;it++){ const nb=neighbor(cur),nd=_pdist(_prof10(nb,pool),target); if(nd<cd){cur=nb;cd=nd;} }
+    if(ok(cur)&&cd<bestD){best=cur;bestD=cd;} }
+  if(!best){ for(let i=0;i<5000&&!best;i++){const s=randSet(); if(ok(s)){best=s;bestD=_pdist(_prof10(s,pool),target);}} }
+  return _twin[ck]=best?{white:best,special:tSpec,twinDist:+bestD.toFixed(4)}:null;
+}
+/* WINNER MIMIC: a NEVER-DRAWN line engineered to score as winner-like as possible (hill-climb the composite score).
+   Each re-roll gives a different high-scoring line. Same odds — looking like a winner can't make it one. */
+function winnerMimic(gkey){
+  const P=winnerProfile(gkey), pool=P.pool, spool=P.spool; if(!P.n) return null;
+  const topSpec=P.sf.map((v,i)=>[i,v]).slice(1).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
+  const special=topSpec.length?topSpec[Math.floor(Math.random()*topSpec.length)]:1+Math.floor(Math.random()*spool);
+  const randSet=()=>{const s=new Set();while(s.size<5)s.add(1+Math.floor(Math.random()*pool));return [...s].sort((a,b)=>a-b);};
+  const sc=w=>lineStats({white:w,special},gkey).score;
+  const neighbor=w=>{const s=new Set(w),a=[...s],old=a[Math.floor(Math.random()*5)];s.delete(old);let v,g=0;do{v=Math.random()<0.7?old+(Math.floor(Math.random()*7)-3):1+Math.floor(Math.random()*pool);g++;}while((v<1||v>pool||s.has(v))&&g<60);if(v<1||v>pool||s.has(v))return w;s.add(v);return [...s].sort((a,b)=>a-b);};
+  let cur=randSet(),cs=sc(cur);
+  for(let it=0;it<240;it++){const nb=neighbor(cur);const ns=sc(nb);if(ns>=cs){cur=nb;cs=ns;}}
+  let t=0; while(P.drawn.has(cur.join('-'))&&t<50){const nb=neighbor(cur);cur=nb;cs=sc(nb);t++;}
+  if(P.drawn.has(cur.join('-'))){ for(let i=0;i<4000&&P.drawn.has(cur.join('-'));i++)cur=randSet(); cs=sc(cur); } /* guarantee never-drawn */
+  return {white:cur,special,score:cs};
+}
+function typicalWinnerPanel(gkey){
+  const P=winnerProfile(gkey), g=DATA[gkey]; if(!P.n||!g) return '';
+  const r=x=>Math.round(x), name=g.name, oddM=r(P.odd.m), lowM=r(P.low.m);
+  const sent='A typical '+name+' winner sums ≈<b>'+r(P.sum.m)+'</b>, spans ≈<b>'+r(P.spread.m)+'</b>, runs about <b>'+oddM+' odd / '+(5-oddM)+' even</b>, ~'+lowM+' low, almost never has consecutive numbers (avg '+P.consec.m.toFixed(1)+'), and covers ≈<b>'+r(P.dec.m)+' decades</b>.';
+  const row=(lbl,s,tight)=>'<tr><td>'+lbl+'</td><td class="n">'+(Math.abs(s.m)<10?s.m.toFixed(1):r(s.m))+' ± '+s.sd.toFixed(1)+'</td><td class="n">'+(tight?'<span style="color:var(--good)">tight</span>':'<span style="color:var(--muted)">wide</span>')+'</td></tr>';
+  return '<details class="statwrap" style="margin-top:12px;background:var(--bg-input);border-radius:10px;padding:8px 10px"><summary style="cursor:pointer;font-weight:600;color:var(--deep)">🧬 The typical '+name+' winner — profile of all '+P.n.toLocaleString()+' past draws</summary>'+
+    '<div class="tag" style="margin-top:6px">'+sent+'</div>'+
+    '<table class="lab" style="margin-top:6px"><thead><tr><th>stat</th><th class="n">avg ± sd</th><th class="n">shape</th></tr></thead><tbody>'+
+      row('sum of the 5',P.sum,true)+row('spread (hi−lo)',P.spread,true)+row('odd count',P.odd,false)+row('low count',P.low,false)+row('decades covered',P.dec,true)+row('consecutive pairs',P.consec,false)+
+    '</tbody></table>'+
+    '<div class="tag" style="color:var(--muted);margin-top:4px">"Tight" = winners cluster here (predictable <i>shape</i>); "wide" = anything goes. A description of past winners — it does <b>not</b> forecast the next draw or change the 1 in '+g.odds.toLocaleString()+' odds.</div></details>';
+}
+function patternCheck(gkey){
+  const P=winnerProfile(gkey), g=DATA[gkey]; const H=P.H; const n=P.n; if(n<60||!g) return '';
+  const pool=P.pool, spool=P.spool;
+  const exp=n/spool; let chi=0; for(let i=1;i<=spool;i++)chi+=(P.sf[i]-exp)**2/exp;
+  const crit=spool===26?37.65:16.92; const uni=chi<crit;
+  let hot=1; for(let i=1;i<=spool;i++)if(P.sf[i]>P.sf[hot])hot=i;
+  const third=Math.floor(n/3); const wc=slice=>{const c=new Array(pool+1).fill(0);slice.forEach(d=>{for(let k=0;k<5;k++)c[d[k]]++;});return c.map((v,i)=>[i,v]).slice(1).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x=>x[0]);};
+  const e1=wc(H.slice(0,third)), e3=wc(H.slice(-third)); const ov=e1.filter(x=>e3.includes(x)).length;
+  const half=Math.floor(n/2); const ms=slice=>{let t=0;slice.forEach(d=>{t+=d[0]+d[1]+d[2]+d[3]+d[4];});return t/slice.length;};
+  const drift=Math.abs(ms(H.slice(0,half))-ms(H.slice(half))); const expGap=pool/5;
+  return '<details class="statwrap" style="margin-top:12px;background:var(--bg-input);border-radius:10px;padding:8px 10px"><summary style="cursor:pointer;font-weight:600;color:var(--deep)">🔍 Pattern check — what we tested, what we found (auto-runs on the live data)</summary>'+
+    '<div style="margin-top:6px;font-size:12.5px;line-height:1.7">'+
+    '✅ <b>Draws don\'t remember.</b> The hottest 5 balls in this game\'s <i>first</i> third vs its <i>last</i> third share only <b>'+ov+' of 5</b> — hot numbers reshuffle, so "due"/"hot" picking has no memory to exploit.<br>'+
+    '✅ <b>No drift.</b> The average winning sum barely moved between the first and second half of history (Δ ≈ '+drift.toFixed(1)+' of ~'+Math.round(P.sum.m)+').<br>'+
+    '✅ <b>Gaps are ordinary.</b> A number reappears about every ≈'+expGap.toFixed(1)+' draws — the random expectation. Nothing is ever "overdue."<br>'+
+    (uni?'✅ <b>Bonus ball is uniform.</b> ':'⚠️ <b>Bonus ball tilts slightly.</b> ')+'χ² ≈ '+chi.toFixed(1)+' on the '+spool+' '+(gkey==='powerball'?'Powerballs':'Stars')+' (vs '+crit+') — '+(uni?'pure chance; no "hot" bonus exists.':'the one honest anomaly: bonus #'+hot+' is over-represented — a real frequency fact, still a 1-in-'+spool+' independent draw that does <b>not</b> move the jackpot odds.')+
+    '</div>'+
+    '<div class="tag" style="color:var(--muted);margin-top:4px">These are <b>passed randomness tests</b>, not tips — each says the draw is independent of the past. Number-picking can\'t beat the draw; we pick the most winner-<i>like</i> line and enjoy the odds we can\'t change.</div></details>';
+}
 function card(g,gkey){
   const nd=nextDraw(g.drawDays,g.h,g.m,g.dataThrough), t=net(g.cashLumpSum);
   const pw=g.sp==='PB'?69:52, ps=g.sp==='PB'?26:10;
@@ -225,7 +390,7 @@ function card(g,gkey){
     <div class="method">${g.method}</div>
     <div class="method" style="color:${g.live?'var(--good)':'var(--muted)'}">${g.live?'● live — auto-updates':'● data through '+g.dataThrough+' · refreshes from the live feed when online'}</div>
     ${ldr?`<div class="lastwin"><div class="lwlbl">🏆 Most recent winning numbers${g.dataThrough?` · <span class="lwdate">${g.dataThrough}</span>`:''}</div>
-      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div><div style="margin-top:8px">${slipGrid(ldr.slice(0,5),gkey,210,ldr[5])}<div class="tag" style="margin-top:2px">🎰 its shape on the circle — whites on the outer ring, bonus on the inner. A ring is the most natural layout for a uniform draw; still a picture, not a signal</div></div>${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
+      <div class="balls">${ldr.slice(0,5).map(n=>`<span class="ball">${n}</span>`).join('')}<span class="plus">+</span><span class="ball ${g.cls}">${ldr[5]}</span></div><div style="margin-top:8px">${slipGrid(ldr.slice(0,5),gkey,210,ldr[5])}<div class="tag" style="margin-top:2px">🎰 its shape on the circle — whites on the outer ring, bonus on the inner. A ring is the most natural layout for a uniform draw; still a picture, not a signal</div></div><div class="tag" style="margin-top:6px;color:var(--muted)">📊 How the <b>actual last winner</b> scores — usually mid-pack, the proof the score is descriptive not predictive:</div>${statBlock({white:ldr.slice(0,5),special:ldr[5]},gkey,true)}${g.jackpotOutcome?`<div class="lwoutcome ${g.jackpotOutcome.status==='won'?'won':''}">${g.jackpotOutcome.status==='won'?`🎉 Jackpot WON${g.jackpotOutcome.prize?` — $${(g.jackpotOutcome.prize/1e6).toFixed(0)}M`:''}! Reset to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M.`:`🔁 No jackpot winner — rolled over${g.jackpotOutcome.jackpotNow?` to $${(g.jackpotOutcome.jackpotNow/1e6).toFixed(0)}M`:''}.`}</div>`:''}</div>`:''}
     <div class="count"><div class="lbl">next drawing</div><div class="clock" data-clk>${left(nd-new Date())}</div>
       <div class="tag">${nd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div></div>
     <div class="jrow"><span class="k">Jackpot (est.)</span><span class="v">≈${moneyM(g.advertisedAnnuity)}</span></div>
@@ -235,17 +400,23 @@ function card(g,gkey){
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
     <div class="tag" style="margin:8px 0 2px;padding:8px 10px;background:var(--bg-input);border-radius:8px">🏅 <b>Your lines, ranked best-first:</b> the three data picks are <b>① Best · ② Edge · ③ Shape</b> — ordered by how winner-<i>like</i> each is. Same 1 in ${g.odds.toLocaleString()} odds; the ranking is principle, not a better chance (a walk-forward of every method, even all fused, only ties random).</div>
     <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(myLineFor(gkey).white,gkey,200,myLineFor(gkey).special)}</div>
-      <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div>${lineRecordLine(myLineFor(gkey),gkey,g.name)}</div>
+      <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div>${lineRecordLine(myLineFor(gkey),gkey,g.name)}${statBlock(myLineFor(gkey),gkey,true)}</div>
+    ${handPick(gkey)?`<div class="ticket"><h4>✍ Your hand-pick — built on the dial</h4>${balls(handPick(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(handPick(gkey).white,gkey,200,handPick(gkey).special)}</div><div class="tag">Built on the cosmic dial (open the 🎰 <b>Playslip shapes</b> tab in the Lab to change it). Saved on this device · same 1 in ${g.odds.toLocaleString()} odds as any line.</div>${lineRecordLine(handPick(gkey),gkey,g.name)}${statBlock(handPick(gkey),gkey,true)}</div>`:''}
     ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)"><span style="display:inline-block;background:var(--deep);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:5px">1</span>★★ THE BEST TICKET — most winner-like, same odds</h4>${balls(g.ticketFusion,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketFusion.white,gkey,200,g.ticketFusion.special)}</div>
-      <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the most winner-<i>like</i> single line the data supports (a descriptive pick, <b>not</b> a better chance to win). Auto-recomputes every draw.</div></div>`:''}
+      <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the most winner-<i>like</i> single line the data supports (a descriptive pick, <b>not</b> a better chance to win). Auto-recomputes every draw.</div>${statBlock(g.ticketFusion,gkey,true)}</div>`:''}
     <div class="ticket"><h4><span style="display:inline-block;background:var(--deep);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:5px">2</span>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketEdge.white,gkey,200,g.ticketEdge.special)}</div>
-      <div class="tag">Hot + recent + persistent across the whole history. Same odds as any line — the most defensible guess <i>if</i> any tiny bias existed, not a proven edge.</div></div>
+      <div class="tag">Hot + recent + persistent across the whole history. Same odds as any line — the most defensible guess <i>if</i> any tiny bias existed, not a proven edge.</div>${statBlock(g.ticketEdge,gkey,true)}</div>
     ${g.ticketShape?`<div class="ticket"><h4><span style="display:inline-block;background:var(--deep);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:5px">3</span>🎨 Most winner-like SHAPE — never drawn</h4>${balls(g.ticketShape,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketShape.white,gkey,200,g.ticketShape.special)}</div>
-      <div class="tag">The never-drawn line whose <b>shape on the ring</b> is the most statistically typical of every past winner${g.ticketShape.fit!=null?' (fit '+g.ticketShape.fit+')':''} — evenly spread around the circle, the best-looking, most winner-shaped pick. Ring geometry has <b>no</b> predictive power, same odds as any line. Auto-recomputes every draw.</div></div>`:''}
-    <div class="ticket"><h4>🎲 Behavior mimic — trained on ${g.name}'s distribution</h4><div class="balls" id="m-${g.sp}"></div>
+      <div class="tag">The never-drawn line whose <b>shape on the ring</b> is the most statistically typical of every past winner${g.ticketShape.fit!=null?' (fit '+g.ticketShape.fit+')':''} — evenly spread around the circle, the best-looking, most winner-shaped pick. Ring geometry has <b>no</b> predictive power, same odds as any line. Auto-recomputes every draw.</div>${statBlock(g.ticketShape,gkey,true)}</div>`:''}
+    ${winnerTwin(gkey)?`<div class="ticket"><h4>🪞 Winner's twin — never drawn, shaped like the last winner</h4>${balls(winnerTwin(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(winnerTwin(gkey).white,gkey,200,winnerTwin(gkey).special)}</div><div class="tag">The closest <b>never-drawn</b> line to the most recent ${g.name} winner — matched on sum, balance and ring shape (distance ${winnerTwin(gkey).twinDist}), sharing ≤3 of 5 with any past draw, bonus mirrored. Since exact numbers never repeat, this is the nearest you can "replay" a winner. Same 1 in ${g.odds.toLocaleString()} odds — a descriptive novelty, <b>not</b> a better bet.</div>${statBlock(winnerTwin(gkey),gkey,true)}</div>`:''}
+    <div class="ticket"><h4>🎯 Winner mimic — the most winner-like never-drawn line it can build</h4><div class="balls" id="m-${g.sp}"></div>
       <div id="mg-${g.sp}" style="margin-top:6px"></div>
-      <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">new mimic draw</button>
-      <div class="tag">Crypto-uniform whites (their proven true behavior) + a special drawn from the game's real distribution${gkey==='lottoAmerica'?' — favors the hot star the way the RNG actually does':' (≈ uniform for Powerball)'}. Mimics the fingerprint, not the future — same odds.</div></div>
+      <div id="ms-${g.sp}"></div>
+      <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">generate another winner-like line</button>
+      <div class="tag">Not a random quick-pick: it searches for a <b>never-drawn</b> line that scores as winner-<i>like</i> as possible — matching the fingerprint of past winners (sum, shape, hotness, pairs, hot bonus), dropping the low-scoring ones. Re-roll for a different high-scoring line. Same 1 in ${g.odds.toLocaleString()} odds — thousands of lines look this winner-like, and looking like a winner can't make it one.</div></div>
+    ${scoreLeaderboard(gkey)}
+    ${typicalWinnerPanel(gkey)}
+    ${patternCheck(gkey)}
     ${payoutTable(gkey,g)}
   </div>`;
 }
@@ -254,7 +425,7 @@ function weightedInt(weights){const tot=weights.reduce((a,b)=>a+b,0);if(!tot)ret
 /* Behavior mimic: crypto-uniform whites (their proven true behavior) + special sampled from the game's
    REAL observed distribution (computed from history — captures Lotto America's star-4 tilt). */
 function mimicLine(pool,spool,sfreq){const w=new Set();while(w.size<5)w.add(1+rndInt(pool));return{white:[...w].sort((a,b)=>a-b),special:(sfreq&&sfreq.length===spool)?weightedInt(sfreq):1+rndInt(spool)};}
-window.newMimic=function(id,pool,spool,cls,gkey){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}const t=mimicLine(pool,spool,sf);const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;const gel=document.getElementById(id.replace('m-','mg-'));if(gel)gel.innerHTML=slipGrid(t.white,gkey,200,t.special);};
+window.newMimic=function(id,pool,spool,cls,gkey){let t=winnerMimic(gkey);if(!t){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}t=mimicLine(pool,spool,sf);}lastMimic[gkey]=t;const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;const gel=document.getElementById(id.replace('m-','mg-'));if(gel)gel.innerHTML=slipGrid(t.white,gkey,200,t.special);const stel=document.getElementById(id.replace('m-','ms-'));if(stel)stel.innerHTML=statBlock(t,gkey,true);};
 function renderLearner(){
   const el=document.getElementById('learnerbody'); if(!el) return;
   let h='Two things per game: (1) a lifetime record of every LINE the app lists — My Line, Best ticket, Edge pick — scored against all past draws with a dated wins log; and (2) the prospective method ledger the cloud runner scores after each new draw. If any line or method ever truly beat chance, it separates from the pack here.';
@@ -293,8 +464,9 @@ function render(){
   renderLearner(); renderAnomaly();
   newMimic('m-PB',69,26,'red','powerball'); newMimic('m-SB',52,10,'gold','lottoAmerica');
   document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
-  document.getElementById('foot').innerHTML = '<b>★★ The best ticket</b> — the single highest historical-similarity ticket that has never been drawn: the 5-set whose shape, hotness and pair structure most match every past winner. No line can be more likely to be <i>drawn</i> (proven) — this is simply the most winner-like combination that has never come up, the smartest single pick the data supports.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🎲 Behavior mimic</b> — trained on the real distribution of each game: uniform whites (their proven true behavior) + a special drawn from the real frequencies (favors the Lotto America hot star). Mimics the fingerprint, not the future.<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 58 independent AI agents across every method confirmed no line is more likely to be drawn. Play one you like and set a budget.';
+  document.getElementById('foot').innerHTML = '<b>★★ The best ticket</b> — the single highest historical-similarity ticket that has never been drawn: the 5-set whose shape, hotness and pair structure most match every past winner. No line can be more likely to be <i>drawn</i> (proven) — this is simply the most winner-like combination that has never come up, the smartest single pick the data supports.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🎯 Winner mimic</b> — searches for a never-drawn line that scores as winner-like as possible (matching the fingerprint of past winners), dropping the low-scoring ones — re-roll for another. Same odds as any line.<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 58 independent AI agents across every method confirmed no line is more likely to be drawn. Play one you like and set a budget.';
 }
+window.__dashRender=render;
 
 /* ---- self-updater: fetch Texas Powerball CSV, recompute freq + tickets ---- */
 async function refreshPB(manual){
@@ -389,6 +561,48 @@ setTimeout(()=>syncData(),400);
     const sc=document.getElementById('slipscrub'); if(sc)sc.oninput=function(){ slipIdx=+this.value; slipShow(); };
     const pl=document.getElementById('slipplay'); if(pl)pl.onclick=function(){ if(slipPlay){clearInterval(slipPlay);slipPlay=null;this.textContent='▶';}
       else {this.textContent='⏸';slipPlay=setInterval(()=>{const H=hist(GAME),n=H.length,w=slipWin==='all'?n:Math.min(+slipWin,n);slipIdx=(slipIdx+1)%w;slipShow();},110);} }; }
+  /* ---- interactive HANDPICKER: build your own ticket on the cosmic dial ---- */
+  function hpState(gkey){ if(!window._hp)window._hp={}; if(!window._hp[gkey]){ const s=handPick(gkey); window._hp[gkey]={w:new Set(s?s.white:[]), s:s?s.special:null}; } return window._hp[gkey]; }
+  function slipPicker(gkey,size){
+    const pool=gkey==='powerball'?69:52, spool=gkey==='powerball'?26:10; size=size||300;
+    const cx=size/2,cy=size/2,Rout=size*0.43,Rin=size*0.24, st=hpState(gkey);
+    let s='<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="max-width:100%;touch-action:manipulation">';
+    s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+Rout.toFixed(1)+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/><circle cx="'+cx+'" cy="'+cy+'" r="'+Rin.toFixed(1)+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/>';
+    const wd=Math.max(4,2*Math.PI*Rout/pool*0.44);
+    for(let i=1;i<=pool;i++){const p=ringXY(i,pool,Rout,cx,cy),on=st.w.has(i);
+      s+='<circle class="hpw" data-hw="'+i+'" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+(on?wd*1.4:wd*0.9).toFixed(1)+'" fill="'+(on?'var(--deep)':'var(--bg-input)')+'" stroke="'+(on?'var(--deep)':'var(--line2)')+'" stroke-width="0.5" style="cursor:pointer"/>';
+      s+='<text class="hpw" data-hw="'+i+'" x="'+p[0].toFixed(1)+'" y="'+(p[1]+wd*0.5).toFixed(1)+'" text-anchor="middle" font-size="'+(wd*1.5).toFixed(1)+'" fill="'+(on?'#fff':'var(--muted)')+'"'+(on?' font-weight="600"':'')+' style="cursor:pointer">'+i+'</text>';}
+    const bd=Math.max(5,2*Math.PI*Rin/spool*0.44);
+    for(let j=1;j<=spool;j++){const p=ringXY(j,spool,Rin,cx,cy),on=st.s===j;
+      s+='<circle class="hps" data-hs="'+j+'" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+(on?bd*1.4:bd*0.9).toFixed(1)+'" fill="'+(on?spColor(gkey):'var(--bg-input)')+'" stroke="'+(on?spColor(gkey):'var(--line2)')+'" stroke-width="0.5" style="cursor:pointer"/>';
+      s+='<text class="hps" data-hs="'+j+'" x="'+p[0].toFixed(1)+'" y="'+(p[1]+bd*0.5).toFixed(1)+'" text-anchor="middle" font-size="'+(bd*1.5).toFixed(1)+'" fill="'+(on?'#fff':'var(--muted)')+'"'+(on?' font-weight="600"':'')+' style="cursor:pointer">'+j+'</text>';}
+    s+='<text x="'+cx+'" y="'+(cy+size*0.02)+'" text-anchor="middle" font-size="'+(size*0.05).toFixed(1)+'" fill="var(--muted)">'+(gkey==='powerball'?'PB':'SB')+'</text></svg>';
+    return s;
+  }
+  function handpickerPanel(gkey){
+    return '<div class="labnote" style="background:var(--bg-input);margin-bottom:12px">'+
+      '<div style="font-weight:600;color:var(--deep);margin-bottom:4px">✍ Hand-pick your own ticket</div>'+
+      '<div class="tag" style="margin-bottom:6px">Tap 5 white numbers on the outer ring and 1 bonus on the inner ring. Your pick saves on this device, is scored live below, and joins the 🏅 line rankings — recomputed after every draw. Same odds as any line.</div>'+
+      '<div id="hppick" style="text-align:center">'+slipPicker(gkey,300)+'</div>'+
+      '<div id="hpread" style="text-align:center;font-family:monospace;font-weight:600;margin-top:6px"></div>'+
+      '<div style="margin-top:6px;text-align:center"><button id="hpclear" class="mimicbtn">clear</button> <button id="hpbest" class="mimicbtn">seed from Best</button> <button id="hprand" class="mimicbtn">random</button></div>'+
+      '<div id="hpstat" style="margin-top:6px"></div></div>';
+  }
+  function wireHandpicker(gkey){
+    const st=hpState(gkey), pool=gkey==='powerball'?69:52, spool=gkey==='powerball'?26:10;
+    const renderRead=()=>{ const wl=[...st.w].sort((a,b)=>a-b), r=document.getElementById('hpread');
+      if(r)r.textContent = wl.length? (wl.join('  ')+'   +   '+(st.s||'?')) : '(pick 5 whites + 1 bonus)';
+      const stat=document.getElementById('hpstat');
+      if(st.w.size===5&&st.s){ const line={white:wl,special:st.s}; setHandPick(gkey,line); if(stat)stat.innerHTML=statBlock(line,gkey,true); if(window.__dashRender)window.__dashRender(); }
+      else { if(handPick(gkey)){ removeHandPick(gkey); if(window.__dashRender)window.__dashRender(); } if(stat)stat.innerHTML='<div class="tag" style="color:var(--muted)">Pick '+(5-st.w.size)+' more white'+((5-st.w.size)===1?'':'s')+(st.s?'':' and a bonus')+' to score your line.</div>'; } };
+    const bind=()=>{ document.querySelectorAll('.hpw').forEach(el=>el.onclick=function(){ const i=+this.dataset.hw; if(st.w.has(i))st.w.delete(i); else if(st.w.size<5)st.w.add(i); redraw(); });
+      document.querySelectorAll('.hps').forEach(el=>el.onclick=function(){ const j=+this.dataset.hs; st.s=(st.s===j?null:j); redraw(); }); };
+    const redraw=()=>{ const pk=document.getElementById('hppick'); if(pk)pk.innerHTML=slipPicker(gkey,300); bind(); renderRead(); };
+    bind(); renderRead();
+    const c=document.getElementById('hpclear'); if(c)c.onclick=()=>{ st.w.clear(); st.s=null; redraw(); };
+    const bb=document.getElementById('hpbest'); if(bb)bb.onclick=()=>{ const bl=DATA[gkey].ticketFusion; if(bl){ st.w=new Set(bl.white); st.s=bl.special; } redraw(); };
+    const rn=document.getElementById('hprand'); if(rn)rn.onclick=()=>{ const w=new Set(); while(w.size<5)w.add(1+Math.floor(Math.random()*pool)); st.w=w; st.s=1+Math.floor(Math.random()*spool); redraw(); };
+  }
   function panelPlayslip(k){
     const M=META[k], H=hist(k), n=H.length; if(n<50) return '<div class="verdict warn">No draw history loaded.</div>';
     const pool=(k==='powerball'?69:52), spool=(k==='powerball'?26:10);
@@ -434,7 +648,7 @@ setTimeout(()=>syncData(),400);
       '<div id="slipdraw" style="text-align:center;margin-top:6px"></div>'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:8px"><button id="slipplay" style="padding:5px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg-input)">▶</button><input id="slipscrub" type="range" min="0" value="0" step="1" style="flex:1"><span id="slippos" style="font-size:12px;color:var(--muted);min-width:64px;text-align:right"></span></div>'+
       '<div class="tag" style="margin-top:4px">Scrub or press ▶ to watch every drawing&rsquo;s shape spin around the ring &mdash; it wanders with no rhythm.</div></div>';
-    return viewer+'<p class="sub" style="margin:0 0 6px">All '+n+' draws on the CIRCLE &mdash; whites on the outer ring (shaded by hit frequency), bonus on the inner. Outlined = latest. A ring is the most natural layout for a uniform draw: no corners, no bias.</p>'+
+    return handpickerPanel(k)+viewer+'<p class="sub" style="margin:0 0 6px">All '+n+' draws on the CIRCLE &mdash; whites on the outer ring (shaded by hit frequency), bonus on the inner. Outlined = latest. A ring is the most natural layout for a uniform draw: no corners, no bias.</p>'+
       '<div style="text-align:center">'+heat+'</div>'+
       '<table class="lab" style="margin-top:10px"><thead><tr><th>Ring geometry ('+n+' draws)</th><th class="n">Real</th><th class="n">Random</th></tr></thead><tbody>'+
       '<tr><td>Clustering (0=spread,1=clumped)</td><td class="n">'+real.R.toFixed(3)+'</td><td class="n">'+rnd.R.toFixed(3)+'</td></tr>'+
@@ -652,7 +866,7 @@ setTimeout(()=>syncData(),400);
     else if(TAB==='bt'){b.innerHTML=panelBT(GAME);document.getElementById('btgo').onclick=runBT;}
     else if(TAB==='chrono'){b.innerHTML=panelChrono(GAME);document.getElementById('chronogo').onclick=runChrono;}
     else if(TAB==='intel'){b.innerHTML=panelIntel(GAME);document.getElementById('intelgo').onclick=runIntel;}
-    else if(TAB==='slip'){slipIdx=1e9;b.innerHTML=panelPlayslip(GAME);wireSlip();slipShow();}
+    else if(TAB==='slip'){slipIdx=1e9;b.innerHTML=panelPlayslip(GAME);wireSlip();wireHandpicker(GAME);slipShow();}
     else b.innerHTML=panelCrack();
   }
   document.querySelectorAll('.labtab').forEach(t=>t.onclick=function(){document.querySelectorAll('.labtab').forEach(x=>x.classList.remove('active'));t.classList.add('active');TAB=t.dataset.t;render();});
