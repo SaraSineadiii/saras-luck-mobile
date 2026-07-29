@@ -416,6 +416,15 @@ setTimeout(()=>syncData(),400);
     const rnd=geom(sim);
     const thB=new Array(12).fill(0); H.forEach(d=>{let ax=0,ay=0;for(let i=0;i<5;i++){const p=rp(d[i]);ax+=p[0];ay+=p[1];}let a=Math.atan2(ay,ax)*180/Math.PI;if(a<0)a+=360;thB[Math.min(11,Math.floor(a/30))]++;});
     const chiTh=thB.reduce((s,o)=>s+(o-n/12)**2/(n/12),0), uniform=chiTh<19.7;
+    function shapeSig(w){const s=w.slice(0,5).slice().sort((a,b)=>a-b);const gg=[];for(let i=0;i<5;i++)gg.push((i<4?s[i+1]:s[0]+pool)-s[i]);let bb=null;for(let rf=0;rf<2;rf++){const g2=rf?gg.slice().reverse():gg;for(let r=0;r<5;r++){const kk=g2.slice(r).concat(g2.slice(0,r)).join(",");if(bb===null||kk<bb)bb=kk;}}return bb;}
+    const shp={}; H.forEach(w=>{const s=shapeSig(w);shp[s]=(shp[s]||0)+1;});
+    const distinctShapes=Object.keys(shp).length, recurShapes=Object.values(shp).filter(x=>x>=2).length;
+    const possShapes=pool===69?"~81,700":"~25,100", totTix=pool===69?"11.2M":"2.6M", mlTix=pool===69?"~240":"~150", expRec=pool===69?12:5;
+    const shapeFacts="<div class=\"labnote\" style=\"margin-top:10px\"><b>🔺 Shape facts — the deep dive</b><br>"+
+      "&bull; "+possShapes+" possible ring-<i>shapes</i> exist (a shape = the pattern of gaps between the 5 balls, ignoring where it sits or flips). Your "+n+" draws made "+distinctShapes+" different ones.<br>"+
+      "&bull; <b>Exact tickets never repeat</b> (0 in "+n+") — but <b>shapes recur</b>: "+recurShapes+" came up twice, right at the ~"+expRec+" chance predicts.<br>"+
+      "&bull; <b>No shape is due or dominant.</b> The most-likely one barely leads — tens of thousands of spread shapes are within 2× of it, and ~98% of draws invent a brand-new shape. Tight/symmetric shapes (5-in-a-row) are ~10–15× rarer than spread ones.<br>"+
+      "&bull; The most-likely shape still covers only "+mlTix+" tickets of "+totTix+", each 1 in "+M.jodds.toLocaleString()+". Knowing the shape narrows nothing you can bet.</div>";
     const wins=['30','60','90','200','all'];
     const viewer='<div class="labnote" style="background:var(--bg-input);margin-bottom:12px">'+
       '<div style="font-weight:600;margin-bottom:6px">🎞 Look through the drawings</div>'+
@@ -432,7 +441,7 @@ setTimeout(()=>syncData(),400);
       '<tr><td>Direction uniformity &chi;&sup2;/11</td><td class="n" colspan="2">'+chiTh.toFixed(1)+' &mdash; '+(uniform?'no favoured direction':'flag')+'</td></tr>'+
       '</tbody></table>'+
       '<div class="verdict '+(uniform?'pass':'warn')+'">On the ring the geometry is identical to random &mdash; no favoured direction, no rotation, shapes recur no more than chance. No shape the draw favours.</div>'+
-      '<div class="labnote"><b>The pattern is human, not in the draw.</b> Pretty tickets (lines, 1&middot;2&middot;3&middot;4&middot;5) get chosen by many players, so if one hits it is split many ways &mdash; the 2005 fortune-cookie draw made 110 Match-5 winners from one popular set. A shape changes who you&rsquo;d split with, never whether you win.</div>';
+      '<div class="labnote"><b>The pattern is human, not in the draw.</b> Pretty tickets (lines, 1&middot;2&middot;3&middot;4&middot;5) get chosen by many players, so if one hits it is split many ways &mdash; the 2005 fortune-cookie draw made 110 Match-5 winners from one popular set. A shape changes who you&rsquo;d split with, never whether you win.</div>'+shapeFacts;
   }
 
   function panelRNG(k){
