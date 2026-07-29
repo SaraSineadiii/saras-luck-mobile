@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-512.png">
 <style>
-  :root{--bg:#F2F9F5;--card:#ECF7F0;--panel:#E4F4EA;--bg-input:#F8FDF9;--line:rgba(30,130,70,0.16);--line2:rgba(30,130,70,0.30);--pink:#3DAA72;--deep:#267A52;--plum:#0F2218;--muted:#66987A;--gold:#e0a92e;--red:#d4342a;--good:#2f9d6b;--glow:rgba(61,170,114,0.22);--grad-top:#5BC98D;--grad-bot:#2E9A63;}
+  :root{--bg:#F2F9F5;--card:#ECF7F0;--panel:#E4F4EA;--bg-input:#F8FDF9;--line:rgba(30,130,70,0.16);--line2:rgba(30,130,70,0.30);--pink:#3DAA72;--deep:#267A52;--plum:#0F2218;--muted:#66987A;--gold:#e0a92e;--red:#d4342a;--good:#2f9d6b;--ink:#183a28;--glow:rgba(61,170,114,0.22);--grad-top:#5BC98D;--grad-bot:#2E9A63;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;background:var(--bg);color:var(--plum);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.5;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
   .wrap{max-width:560px;margin:0 auto;padding:16px 14px 48px}
@@ -196,8 +196,6 @@ function lineRecordLine(line,gkey,gname){
   const r=lineRecord(line,gkey); if(!r.draws) return '';
   return '<div class="tag" style="margin-top:6px;color:var(--deep)">📊 <b>All-time record</b> vs every real '+gname+' draw ('+r.draws.toLocaleString()+' draws): won <b>$'+r.won.toLocaleString()+'</b> on $'+r.spent.toLocaleString()+' ('+(r.spent?((r.won/r.spent-1)*100).toFixed(0):0)+'% ROI), hit a prize <b>'+r.hits+'</b>×, best <b>'+r.best+'/5</b>'+(r.jackpots?' + special 🎉':'')+'. A fixed line — a fair lifetime tally, same odds going forward.</div>';
 }
-function gridInfo(gkey){const pool=gkey==='powerball'?69:52,W=gkey==='powerball'?9:8,R=Math.ceil(pool/W),lastN=pool-(R-1)*W,off=(W-lastN)/2;
-  return {pool,W,R,pos:num=>{const c=(num-1)%W,r=Math.floor((num-1)/W);return [r===R-1?c+off:c, r];}};}
 const spColor=gkey=>gkey==='powerball'?'#df4b47':'#e3a72c';
 function ringXY(i,count,R,cx,cy){const a=-Math.PI/2+2*Math.PI*(i-1)/count;return [cx+R*Math.cos(a), cy+R*Math.sin(a)];}
 function slipGrid(whites, gkey, size, special){
@@ -354,7 +352,7 @@ async function syncData(){
     const r=await fetch('https://raw.githubusercontent.com/SaraSineadiii/saras-luck-data/main/data.json',{cache:'no-store'});
     if(!r.ok) throw new Error('bad');
     const j=await r.json();
-    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.ticketFusion)DATA[k].ticketFusion=g.ticketFusion; if(g.ticketShape)DATA[k].ticketShape=g.ticketShape; if(g.specialBias)DATA[k].specialBias=g.specialBias; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length)DATA[k].history=g.history; if(g.historyDates&&g.historyDates.length)DATA[k].historyDates=g.historyDates; if(g.jackpotOutcome)DATA[k].jackpotOutcome=g.jackpotOutcome; if(g.learner)DATA[k].learner=g.learner; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
+    for(const k of ['powerball','lottoAmerica']){ const g=j[k]; if(g&&g.ticketData&&g.ticketEdge){ DATA[k].ticketData=g.ticketData; DATA[k].ticketEdge=g.ticketEdge; if(g.ticketFusion)DATA[k].ticketFusion=g.ticketFusion; if(g.ticketShape)DATA[k].ticketShape=g.ticketShape; if(g.specialBias)DATA[k].specialBias=g.specialBias; if(g.draws)DATA[k].draws=g.draws; if(g.history&&g.history.length){ DATA[k].history=g.history; /* apply dates ONLY in lockstep with history so a stale historyDates can't pair with fresh draws (wins-log integrity) */ DATA[k].historyDates=(g.historyDates&&g.historyDates.length===g.history.length)?g.historyDates:g.history.map(()=>''); } if(g.jackpotOutcome)DATA[k].jackpotOutcome=g.jackpotOutcome; if(g.learner)DATA[k].learner=g.learner; if(g.dataThrough)DATA[k].dataThrough=g.dataThrough; if(g.advertisedAnnuity)DATA[k].advertisedAnnuity=g.advertisedAnnuity; if(g.cashLumpSum)DATA[k].cashLumpSum=g.cashLumpSum; DATA[k].live=true; } }
     DATA.updated=(j.updated||'').slice(0,10);
     try{localStorage.setItem('saraLuck',JSON.stringify(DATA));}catch(e){}
     render();
@@ -397,7 +395,9 @@ setTimeout(()=>syncData(),400);
     const hits=new Array(pool+1).fill(0); H.forEach(d=>{for(let i=0;i<5;i++)hits[d[i]]++;});
     const maxH=Math.max.apply(null,hits.slice(1)), minH=Math.min.apply(null,hits.slice(1));
     const latest=H[n-1].slice(0,5), latestSp=H[n-1][5];
-    const sf=(DATA[k].powerFreq||DATA[k].starFreq)||[], sfmax=Math.max(1,...(sf.length?sf:[1])), sfmin=sf.length?Math.min(...sf):0;
+    let sf=(DATA[k].powerFreq||DATA[k].starFreq)||[];
+    if(!sf.length){ sf=new Array(spool).fill(0); H.forEach(d=>{const s=d[5]; if(s>=1&&s<=spool)sf[s-1]++;}); } /* derive special-ball freq from loaded history so the inner ring's heat is real, not flat */
+    const sfmax=Math.max(1,...(sf.length?sf:[1])), sfmin=sf.length?Math.min(...sf):0;
     const SZ=300, cx=SZ/2, cy=SZ/2, Rout=SZ*0.43, Rin=SZ*0.24;
     let heat='<svg viewBox="0 0 '+SZ+' '+SZ+'" style="max-width:300px;width:100%">';
     heat+='<circle cx="'+cx+'" cy="'+cy+'" r="'+Rout+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/><circle cx="'+cx+'" cy="'+cy+'" r="'+Rin+'" fill="none" stroke="var(--line2)" stroke-width="0.5"/>';
