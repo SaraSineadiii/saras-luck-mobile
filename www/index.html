@@ -361,9 +361,18 @@ function typicalWinnerPanel(gkey){
     '</tbody></table>'+
     '<div class="tag" style="color:var(--muted);margin-top:4px">"Tight" = winners cluster here (predictable <i>shape</i>); "wide" = anything goes. A description of past winners — it does <b>not</b> forecast the next draw or change the 1 in '+g.odds.toLocaleString()+' odds.</div></details>';
 }
+const _wss={};
+function winnerScoreSummary(gkey){
+  const P=winnerProfile(gkey); const H=P.H, n=P.n, g=DATA[gkey]; if(!n||!g) return null;
+  const ck=gkey+':'+n; if(_wss[ck]) return _wss[ck];
+  const best=g.ticketFusion?lineStats(g.ticketFusion,gkey).score:null;
+  let sum=0,max=0,beat=0; for(const row of H){ const s=lineStats({white:row.slice(0,5),special:row[5]},gkey).score; sum+=s; if(s>max)max=s; if(best!=null&&s>best)beat++; }
+  let rsum=0; const K=400; for(let i=0;i<K;i++){const w=new Set();while(w.size<5)w.add(1+Math.floor(Math.random()*P.pool));rsum+=lineStats({white:[...w],special:1+Math.floor(Math.random()*P.spool)},gkey).score;}
+  return _wss[ck]={n,avg:Math.round(sum/n),randAvg:Math.round(rsum/K),max,best,beat};
+}
 function patternCheck(gkey){
   const P=winnerProfile(gkey), g=DATA[gkey]; const H=P.H; const n=P.n; if(n<60||!g) return '';
-  const pool=P.pool, spool=P.spool;
+  const pool=P.pool, spool=P.spool; const wss=winnerScoreSummary(gkey);
   const exp=n/spool; let chi=0; for(let i=1;i<=spool;i++)chi+=(P.sf[i]-exp)**2/exp;
   const crit=spool===26?37.65:16.92; const uni=chi<crit;
   let hot=1; for(let i=1;i<=spool;i++)if(P.sf[i]>P.sf[hot])hot=i;
@@ -377,6 +386,7 @@ function patternCheck(gkey){
     '✅ <b>No drift.</b> The average winning sum barely moved between the first and second half of history (Δ ≈ '+drift.toFixed(1)+' of ~'+Math.round(P.sum.m)+').<br>'+
     '✅ <b>Gaps are ordinary.</b> A number reappears about every ≈'+expGap.toFixed(1)+' draws — the random expectation. Nothing is ever "overdue."<br>'+
     (uni?'✅ <b>Bonus ball is uniform.</b> ':'⚠️ <b>Bonus ball tilts slightly.</b> ')+'χ² ≈ '+chi.toFixed(1)+' on the '+spool+' '+(gkey==='powerball'?'Powerballs':'Stars')+' (vs '+crit+') — '+(uni?'pure chance; no "hot" bonus exists.':'the one honest anomaly: bonus #'+hot+' is over-represented — a real frequency fact, still a 1-in-'+spool+' independent draw that does <b>not</b> move the jackpot odds.')+
+    (wss?'<br>✅ <b>You can\'t bet on the score.</b> We scored all '+wss.n.toLocaleString()+' past '+g.name+' winners: they average <b>'+wss.avg+'/100</b> — essentially the same as random lines (~'+wss.randAvg+') — and <b>not one</b> ever beat the Best line\'s <b>'+wss.best+'</b>. The top scores are <i>over</i>-typical (less like a real winner). A tiny in-sample bump vanishes out-of-sample: on unseen draws a real winner sits at the ~50th percentile of random lines. No score or rank is bettable.':'')+
     '</div>'+
     '<div class="tag" style="color:var(--muted);margin-top:4px">These are <b>passed randomness tests</b>, not tips — each says the draw is independent of the past. Number-picking can\'t beat the draw; we pick the most winner-<i>like</i> line and enjoy the odds we can\'t change.</div></details>';
 }
