@@ -257,9 +257,10 @@ function gameLines(gkey){ const g=DATA[gkey]; const out=[['⭐ My Line',myLineFo
   if(g.ticketFusion)out.push(['★★ Best',g.ticketFusion]);
   if(g.ticketEdge)out.push(['★ Edge',g.ticketEdge]);
   if(g.ticketShape)out.push(['🎨 Shape',g.ticketShape]);
+  const tl=theLine(gkey); if(tl)out.push(['🎯 The line',tl]);
   const wt=winnerTwin(gkey); if(wt)out.push(['🪞 Winner’s twin',wt]);
   const hp=handPick(gkey); if(hp)out.push(['✍ Your hand-pick',hp]);
-  const mm=lastMimic[gkey]; if(mm)out.push(['🎲 Mimic',mm]);
+  const mm=lastMimic[gkey]; if(mm&&_lkey(mm)!==(tl?_lkey(tl):''))out.push(['🎲 Another line',mm]);
   const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];
   if(H.length){const r=H[H.length-1];out.push(['🏆 Last winner',{white:r.slice(0,5),special:r[5]}]);}
   return out; }
@@ -336,19 +337,28 @@ function winnerTwin(gkey){
 }
 /* WINNER MIMIC: a NEVER-DRAWN line engineered to score as winner-like as possible (hill-climb the composite score).
    Each re-roll gives a different high-scoring line. Same odds — looking like a winner can't make it one. */
-function winnerMimic(gkey){
+function _mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function winnerMimic(gkey, rnd){
+  rnd=rnd||Math.random;
   const P=winnerProfile(gkey), pool=P.pool, spool=P.spool; if(!P.n) return null;
+  const wss=winnerScoreSummary(gkey); const T=wss?wss.avg:60;   /* aim for the TYPICAL-winner band, not the over-typical max */
   const topSpec=P.sf.map((v,i)=>[i,v]).slice(1).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
-  const special=topSpec.length?topSpec[Math.floor(Math.random()*topSpec.length)]:1+Math.floor(Math.random()*spool);
-  const randSet=()=>{const s=new Set();while(s.size<5)s.add(1+Math.floor(Math.random()*pool));return [...s].sort((a,b)=>a-b);};
-  const sc=w=>lineStats({white:w,special},gkey).score;
-  const neighbor=w=>{const s=new Set(w),a=[...s],old=a[Math.floor(Math.random()*5)];s.delete(old);let v,g=0;do{v=Math.random()<0.7?old+(Math.floor(Math.random()*7)-3):1+Math.floor(Math.random()*pool);g++;}while((v<1||v>pool||s.has(v))&&g<60);if(v<1||v>pool||s.has(v))return w;s.add(v);return [...s].sort((a,b)=>a-b);};
-  let cur=randSet(),cs=sc(cur);
-  for(let it=0;it<240;it++){const nb=neighbor(cur);const ns=sc(nb);if(ns>=cs){cur=nb;cs=ns;}}
-  let t=0; while(P.drawn.has(cur.join('-'))&&t<50){const nb=neighbor(cur);cur=nb;cs=sc(nb);t++;}
-  if(P.drawn.has(cur.join('-'))){ for(let i=0;i<4000&&P.drawn.has(cur.join('-'));i++)cur=randSet(); cs=sc(cur); } /* guarantee never-drawn */
-  return {white:cur,special,score:cs};
+  const special=topSpec.length?topSpec[Math.floor(rnd()*topSpec.length)]:1+Math.floor(rnd()*spool);
+  const randSet=()=>{const s=new Set();while(s.size<5)s.add(1+Math.floor(rnd()*pool));return [...s].sort((a,b)=>a-b);};
+  const cost=w=>{ const st=lineStats({white:w,special},gkey); let odd=0,cp=0; const ds=new Set(); for(let k=0;k<5;k++){if(w[k]%2)odd++;ds.add(Math.floor((w[k]-1)/10));if(k<4&&w[k+1]-w[k]===1)cp++;} return Math.abs(st.score-T)+Math.abs(odd-3)*2+Math.abs(ds.size-4)*2+cp*3; };
+  const neighbor=w=>{const s=new Set(w),a=[...s],old=a[Math.floor(rnd()*5)];s.delete(old);let v,g=0;do{v=rnd()<0.7?old+(Math.floor(rnd()*7)-3):1+Math.floor(rnd()*pool);g++;}while((v<1||v>pool||s.has(v))&&g<60);if(v<1||v>pool||s.has(v))return w;s.add(v);return [...s].sort((a,b)=>a-b);};
+  let cur=randSet(),cc=cost(cur);
+  for(let it=0;it<240;it++){const nb=neighbor(cur);const nc=cost(nb);if(nc<=cc){cur=nb;cc=nc;}}
+  let t=0; while(P.drawn.has(cur.join('-'))&&t<50){cur=neighbor(cur);cc=cost(cur);t++;}
+  if(P.drawn.has(cur.join('-'))){ for(let i=0;i<4000&&P.drawn.has(cur.join('-'));i++)cur=randSet(); } /* guarantee never-drawn */
+  return {white:cur,special,score:lineStats({white:cur,special},gkey).score};
 }
+const _theLine={};
+/* THE LINE is DETERMINISTIC from the data (seeded) — the identical line on every device + session,
+   recomputed only when new draws land. The re-roll uses live randomness for variety. */
+function theLine(gkey){ const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[]; const n=H.length, ck=gkey+':'+n; if(_theLine[ck])return _theLine[ck];
+  const seed=((gkey==='powerball'?0x9E3779B9:0x85EBCA6B)^Math.imul(n,2654435761))>>>0;
+  const m=winnerMimic(gkey, _mulberry32(seed)); return m?(_theLine[ck]=m):null; }
 function typicalWinnerPanel(gkey){
   const P=winnerProfile(gkey), g=DATA[gkey]; if(!P.n||!g) return '';
   const r=x=>Math.round(x), name=g.name, oddM=r(P.odd.m), lowM=r(P.low.m);
@@ -408,22 +418,19 @@ function card(g,gkey){
     <div class="jrow"><span class="k">Odds</span><span class="v">1 in ${g.odds.toLocaleString()}</span></div>
     <div class="net"><div class="cap">Win alone in Oklahoma, after top-rate (~37%) federal + 4.5% state</div>
       <div class="big">${money(t.net)}</div><div class="cap">− ${money(t.f)} federal · − ${money(t.o)} state</div></div>
-    <div class="tag" style="margin:8px 0 2px;padding:8px 10px;background:var(--bg-input);border-radius:8px">🏅 <b>Your lines, ranked best-first:</b> the three data picks are <b>① Best · ② Edge · ③ Shape</b> — ordered by how winner-<i>like</i> each is. Same 1 in ${g.odds.toLocaleString()} odds; the ranking is principle, not a better chance (a walk-forward of every method, even all fused, only ties random).</div>
+    <div class="tag" style="margin:8px 0 2px;padding:8px 10px;background:var(--bg-input);border-radius:8px">🎯 <b>Playing one line? Play THE LINE below.</b> It's the never-drawn line most statistically like a real ${g.name} winner — its score sits in the <b>real-winner band</b> (~${winnerScoreSummary(gkey)?winnerScoreSummary(gkey).randAvg:60}/100), not the over-optimized max. All lines share the identical 1 in ${g.odds.toLocaleString()} odds — there is <b>no</b> line with better odds — but this is the most defensible winner-<i>like</i> single pick, and it recomputes as new draws land.</div>
+    ${theLine(gkey)?`<div class="ticket" style="background:linear-gradient(180deg,#EAF7EF,var(--bg-input));border:2px solid var(--deep);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)">🎯 THE LINE TO PLAY — most like a real winner, never drawn</h4><div id="theline-${g.sp}">${balls(theLine(gkey),g.cls)}</div><div id="thelinegrid-${g.sp}" style="margin-top:6px">${slipGrid(theLine(gkey).white,gkey,200,theLine(gkey).special)}</div><div id="thelinestat-${g.sp}">${statBlock(theLine(gkey),gkey,true)}</div><div class="tag">A <b>never-drawn</b> 5-set (never 4-of-5 with any past draw) whose score lands right in the <b>real-winner band</b>, with the typical winner shape — ~4 decades, ~3 odd/2 even, sum near the winner average, hottest bonus. Unlike the over-optimized "Best" pick (higher than <i>any</i> real winner ever), this actually looks like a genuine winner. Same odds as any line — keep it, or tap for another.</div><button class="mimicbtn" onclick="newLine('${g.sp}','${g.cls}','${gkey}')">🎲 show me a different equally-winner-like line</button></div>`:''}
     <div class="ticket"><h4>⭐ My Line — your personal pick</h4>${balls(myLineFor(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(myLineFor(gkey).white,gkey,200,myLineFor(gkey).special)}</div>
       <div class="tag">${gkey==='lottoAmerica'?'Two numbers auto-update to your current ages (08/21/1990 and 09/29/1981) each birthday.':'Your fixed personal line.'} Same odds as any line — play what you love.</div>${lineRecordLine(myLineFor(gkey),gkey,g.name)}${statBlock(myLineFor(gkey),gkey,true)}</div>
     ${handPick(gkey)?`<div class="ticket"><h4>✍ Your hand-pick — built on the dial</h4>${balls(handPick(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(handPick(gkey).white,gkey,200,handPick(gkey).special)}</div><div class="tag">Built on the cosmic dial (open the 🎰 <b>Playslip shapes</b> tab in the Lab to change it). Saved on this device · same 1 in ${g.odds.toLocaleString()} odds as any line.</div>${lineRecordLine(handPick(gkey),gkey,g.name)}${statBlock(handPick(gkey),gkey,true)}</div>`:''}
-    ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F1FAF4,var(--bg-input));border:2px solid var(--line2);border-radius:12px;padding:11px 12px"><h4 style="color:var(--deep)"><span style="display:inline-block;background:var(--deep);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:5px">1</span>★★ THE BEST TICKET — most winner-like, same odds</h4>${balls(g.ticketFusion,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketFusion.white,gkey,200,g.ticketFusion.special)}</div>
+    <div class="tag" style="margin:14px 0 2px;padding:8px 10px;background:var(--bg-input);border-radius:8px;color:var(--muted)">⚖️ <b>Below: comparison picks — not for your one line.</b> The Best / Edge / Data lines are <i>over</i>-optimized: they score higher than <b>any real ${g.name} winner ever</b> (100th percentile), which makes them <i>less</i> like a genuine winner than 🎯 THE LINE above. Shown so you can see the difference — same odds as everything.</div>
+    ${g.ticketFusion?`<div class="ticket" style="background:linear-gradient(180deg,#F6F9F7,var(--bg-input));border:1.5px solid var(--line);border-radius:12px;padding:11px 12px"><h4 style="color:var(--muted)"><span style="display:inline-block;background:var(--muted);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:5px">✕</span>★★ Best ticket — max-similarity (over-typical · comparison only)</h4>${balls(g.ticketFusion,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketFusion.white,gkey,200,g.ticketFusion.special)}</div>
       <div class="tag">The single highest historical-similarity ticket that has <b>never been drawn</b>${g.ticketFusion.pim?' (score '+g.ticketFusion.pim+'/100)':''}: the 5-set whose shape, hotness and pair structure most match every past winner. Same odds as any line — the most winner-<i>like</i> single line the data supports (a descriptive pick, <b>not</b> a better chance to win). Auto-recomputes every draw.</div>${statBlock(g.ticketFusion,gkey,true)}</div>`:''}
     <div class="ticket"><h4><span style="display:inline-block;background:var(--deep);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:5px">2</span>★ Edge pick</h4>${balls(g.ticketEdge,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketEdge.white,gkey,200,g.ticketEdge.special)}</div>
       <div class="tag">Hot + recent + persistent across the whole history. Same odds as any line — the most defensible guess <i>if</i> any tiny bias existed, not a proven edge.</div>${statBlock(g.ticketEdge,gkey,true)}</div>
     ${g.ticketShape?`<div class="ticket"><h4><span style="display:inline-block;background:var(--deep);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;font-weight:700;margin-right:5px">3</span>🎨 Most winner-like SHAPE — never drawn</h4>${balls(g.ticketShape,g.cls)}<div style="margin-top:6px">${slipGrid(g.ticketShape.white,gkey,200,g.ticketShape.special)}</div>
       <div class="tag">The never-drawn line whose <b>shape on the ring</b> is the most statistically typical of every past winner${g.ticketShape.fit!=null?' (fit '+g.ticketShape.fit+')':''} — evenly spread around the circle, the best-looking, most winner-shaped pick. Ring geometry has <b>no</b> predictive power, same odds as any line. Auto-recomputes every draw.</div>${statBlock(g.ticketShape,gkey,true)}</div>`:''}
     ${winnerTwin(gkey)?`<div class="ticket"><h4>🪞 Winner's twin — never drawn, shaped like the last winner</h4>${balls(winnerTwin(gkey),g.cls)}<div style="margin-top:6px">${slipGrid(winnerTwin(gkey).white,gkey,200,winnerTwin(gkey).special)}</div><div class="tag">The closest <b>never-drawn</b> line to the most recent ${g.name} winner — matched on sum, balance and ring shape (distance ${winnerTwin(gkey).twinDist}), sharing ≤3 of 5 with any past draw, bonus mirrored. Since exact numbers never repeat, this is the nearest you can "replay" a winner. Same 1 in ${g.odds.toLocaleString()} odds — a descriptive novelty, <b>not</b> a better bet.</div>${statBlock(winnerTwin(gkey),gkey,true)}</div>`:''}
-    <div class="ticket"><h4>🎯 Winner mimic — the most winner-like never-drawn line it can build</h4><div class="balls" id="m-${g.sp}"></div>
-      <div id="mg-${g.sp}" style="margin-top:6px"></div>
-      <div id="ms-${g.sp}"></div>
-      <button class="mimicbtn" onclick="newMimic('m-${g.sp}',${pw},${ps},'${g.cls}','${gkey}')">generate another winner-like line</button>
-      <div class="tag">Not a random quick-pick: it searches for a <b>never-drawn</b> line that scores as winner-<i>like</i> as possible — matching the fingerprint of past winners (sum, shape, hotness, pairs, hot bonus), dropping the low-scoring ones. Re-roll for a different high-scoring line. Same 1 in ${g.odds.toLocaleString()} odds — thousands of lines look this winner-like, and looking like a winner can't make it one.</div></div>
     ${scoreLeaderboard(gkey)}
     ${typicalWinnerPanel(gkey)}
     ${patternCheck(gkey)}
@@ -435,7 +442,7 @@ function weightedInt(weights){const tot=weights.reduce((a,b)=>a+b,0);if(!tot)ret
 /* Behavior mimic: crypto-uniform whites (their proven true behavior) + special sampled from the game's
    REAL observed distribution (computed from history — captures Lotto America's star-4 tilt). */
 function mimicLine(pool,spool,sfreq){const w=new Set();while(w.size<5)w.add(1+rndInt(pool));return{white:[...w].sort((a,b)=>a-b),special:(sfreq&&sfreq.length===spool)?weightedInt(sfreq):1+rndInt(spool)};}
-window.newMimic=function(id,pool,spool,cls,gkey){let t=winnerMimic(gkey);if(!t){const H=(DATA[gkey]&&DATA[gkey].history)||(window.LOTTO_HISTORY&&window.LOTTO_HISTORY[gkey])||[];let sf=null;if(H.length){sf=new Array(spool).fill(0);H.forEach(r=>{if(r[5]>=1&&r[5]<=spool)sf[r[5]-1]++;});}t=mimicLine(pool,spool,sf);}lastMimic[gkey]=t;const el=document.getElementById(id);if(el)el.innerHTML=t.white.map(n=>`<span class="ball">${n}</span>`).join('')+`<span class="plus">+</span><span class="ball ${cls}">${t.special}</span>`;const gel=document.getElementById(id.replace('m-','mg-'));if(gel)gel.innerHTML=slipGrid(t.white,gkey,200,t.special);const stel=document.getElementById(id.replace('m-','ms-'));if(stel)stel.innerHTML=statBlock(t,gkey,true);};
+window.newLine=function(key,cls,gkey){const t=winnerMimic(gkey);if(!t)return;lastMimic[gkey]=t;const el=document.getElementById('theline-'+key);if(el)el.innerHTML=balls(t,cls);const gel=document.getElementById('thelinegrid-'+key);if(gel)gel.innerHTML=slipGrid(t.white,gkey,200,t.special);const sel=document.getElementById('thelinestat-'+key);if(sel)sel.innerHTML=statBlock(t,gkey,true);};
 function renderLearner(){
   const el=document.getElementById('learnerbody'); if(!el) return;
   let h='Two things per game: (1) a lifetime record of every LINE the app lists — My Line, Best ticket, Edge pick — scored against all past draws with a dated wins log; and (2) the prospective method ledger the cloud runner scores after each new draw. If any line or method ever truly beat chance, it separates from the pack here.';
@@ -472,9 +479,8 @@ function renderAnomaly(){
 function render(){
   document.getElementById('games').innerHTML = card(DATA.powerball,'powerball') + card(DATA.lottoAmerica,'lottoAmerica');
   renderLearner(); renderAnomaly();
-  newMimic('m-PB',69,26,'red','powerball'); newMimic('m-SB',52,10,'gold','lottoAmerica');
   document.getElementById('status').textContent = 'data '+(DATA.updated||'')+'';
-  document.getElementById('foot').innerHTML = '<b>★★ The best ticket</b> — the single highest historical-similarity ticket that has never been drawn: the 5-set whose shape, hotness and pair structure most match every past winner. No line can be more likely to be <i>drawn</i> (proven) — this is simply the most winner-like combination that has never come up, the smartest single pick the data supports.<br><br><b>★ Edge pick</b> — the consensus of frequency + recent form + staying-power: balls that hold a top-5 spot across many reasonable weightings (robust, not one formula).<br><br><b>Most-drawn line</b> — the most-drawn numbers in this game\'s window (ties broken by recent form).<br><br><b>🎯 Winner mimic</b> — searches for a never-drawn line that scores as winner-like as possible (matching the fingerprint of past winners), dropping the low-scoring ones — re-roll for another. Same odds as any line.<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 58 independent AI agents across every method confirmed no line is more likely to be drawn. Play one you like and set a budget.';
+  document.getElementById('foot').innerHTML = '<b>🎯 THE LINE</b> — your one line to play: a never-drawn 5-set (never 4-of-5 with any past draw) scored right in the <b>real-winner band</b> (~60/100, where actual winners sit), with the typical winner shape. The most statistically winner-<i>like</i> single pick. Tap "another" for a different equally-winner-like one — all the same odds.<br><br><b>Best / Edge / Data</b> (comparison only) — max-similarity picks; they score <i>higher</i> than any real winner ever, so they are OVER-typical — less like a real winner, not more. Shown for contrast.<br><br><b>🎨 Shape</b> — the most winner-shaped never-drawn line (ring geometry, no predictive power).<br><br>All lines share the same odds (1 in 292M / 1 in 26M) — 58 independent AI agents across every method confirmed no line is more likely to be drawn. Play one you like and set a budget.';
 }
 window.__dashRender=render;
 
